@@ -80,7 +80,7 @@ class DatasetAssemblyIDs(luigi.Task):
             The entries.
         """
 
-        file1 = open(os.path.join(self.input()[0]), 'r')
+        file1 = open(os.path.join(self.input()[0].path), 'r')
         lines = file1.readlines()
         entries = []
         entry = []

@@ -59,7 +59,9 @@ class DownloadRheaData(luigi.Task):
         return [luigi.LocalTarget('rhea-reactions.txt'), 
                 luigi.LocalTarget('rhea2uniprot_sprot.tsv'),
                 luigi.LocalTarget('rhea-chebi-smiles.tsv'),
-                luigi.LocalTarget('rhea2ec.tsv')]
+                luigi.LocalTarget('rhea2ec.tsv'),
+                luigi.LocalTarget('rhea2metacyc.tsv'),
+                luigi.LocalTarget('rhea-reaction-smiles.tsv')]
     
     def run(self):
         url = 'https://ftp.expasy.org/databases/rhea/txt/rhea-reactions.txt.gz'
@@ -82,6 +84,12 @@ class DownloadRheaData(luigi.Task):
         runcmd(f'wget {url}')
 
         url = 'https://ftp.expasy.org/databases/rhea/txt/rhea-reactions.txt.gz'
+        runcmd(f'wget {url}')
+
+        url = "https://ftp.expasy.org/databases/rhea/tsv/rhea2metacyc.tsv"
+        runcmd(f'wget {url}')
+
+        url = "https://ftp.expasy.org/databases/rhea/tsv/rhea-reaction-smiles.tsv"
         runcmd(f'wget {url}')
 
 

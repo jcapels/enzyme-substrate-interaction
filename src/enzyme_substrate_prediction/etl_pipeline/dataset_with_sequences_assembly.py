@@ -1,12 +1,19 @@
 import luigi
 import pandas as pd
+from luigi.parameter import ParameterVisibility
 
-from enzyme_substrate_prediction.etl_pipeline.enzyme_compound_pairs_assembly import EnzymeCompoundPairs
+from enzyme_substrate_prediction.etl_pipeline.enzyme_compound_pairs_assembly import EnzymeCompoundPairs, EnzymeCompoundPairsAssemblyMetaCyc
 
-class EnzymeCompoundPairs(luigi.Task):
+class SequencesAssembler(luigi.Task):
+    directionality = luigi.Parameter(default="UNK", visibility=ParameterVisibility.PUBLIC)
 
     def requires(self):
-        return [EnzymeCompoundPairs()]
+        if self.directionality == "UNK":
+            return [EnzymeCompoundPairs()]
+        elif self.directionality == "MetaCyc":
+            return [EnzymeCompoundPairsAssemblyMetaCyc()]
+        else:
+            raise ValueError("Invalid directionality parameter. It should be 'UNK' or 'MetaCyc'.")
 
     def input(self):
         return [luigi.LocalTarget('RHEA_enzyme_compound_pairs.csv'), 
@@ -34,7 +41,7 @@ class EnzymeCompoundPairs(luigi.Task):
 
         swiss_prot_enzymes = pd.read_csv(self.input()[2].path)
         swiss_prot_enzymes.drop(["name", "enzyme"], axis=1, inplace=True)
-        swiss_prot_enzymes.columns = ["uniprot_id", "EC number"]
+        swiss_prot_enzymes.columns = ["uniprot_id", "sequence"]
 
         df_RHEA_smiles_sequences = pd.merge(df_RHEA_smiles, swiss_prot_enzymes, on = "uniprot_id", how = "inner")
         df_RHEA_smiles_sequences.to_csv(self.output().path, index=False)
