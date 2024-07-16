@@ -97,6 +97,28 @@ class EnzymeCompoundPairs(luigi.Task):
 
         rhea2uniprot = pd.read_csv(self.input()[2].path, sep="\t")
 
+        rhea2metacyc = pd.read_csv(self.input()[3].path, sep="\t")
+
+        reaction_to_smiles = pd.read_csv("rhea-reaction-smiles.tsv", sep="\t", header=None)
+        reaction_to_smiles.columns = ["RHEA_ID", "reaction SMILES"]
+
+        # convert into a dict where the keys are rhea_id and the values are the reaction SMILES
+        rhea_to_reaction_smarts_dict = {}
+        for _, row in reaction_to_smiles.iterrows():
+            rhea_to_reaction_smarts_dict[row["RHEA_ID"]] = row["reaction SMILES"]
+
+        
+        # convert the MASTER_ID to keys and the direction into values in a dictionary
+        rhea_to_reaction_smarts_dict_master_id = {}
+        metacyc_dict = {}
+        for _, row in rhea2metacyc.iterrows():
+            metacyc_dict[row["MASTER_ID"]] = row["DIRECTION"]
+            if row["RHEA_ID"] in rhea_to_reaction_smarts_dict:
+                rhea_to_reaction_smarts_dict_master_id[row["MASTER_ID"]] = rhea_to_reaction_smarts_dict[row["RHEA_ID"]]
+
+        # convert rhea_to_reaction_smarts_dict_master_id into a dataframe
+        rhea_to_reaction_smarts = pd.DataFrame(rhea_to_reaction_smarts_dict_master_id.items(), columns = ["RHEA_ID", "reaction SMILES"])
+                
         # get the EC number for each RHEA_ID
         df_RHEA_copy = df_RHEA.copy()
         for i, row in df_RHEA.iterrows():
@@ -105,10 +127,11 @@ class EnzymeCompoundPairs(luigi.Task):
                 df_RHEA_copy.at[i, "EC number"] = values[0]
         
         # remove rows with missing EC number
-        df_RHEA_copy = df_RHEA_copy[~df_RHEA_copy["EC number"].isna()]
+        # df_RHEA_copy = df_RHEA_copy[~df_RHEA_copy["EC number"].isna()]
         
         df_RHEA_copy = pd.merge(df_RHEA_copy, rhea2uniprot, on = "RHEA_ID", how = "inner")
-
+        df_RHEA_copy = pd.merge(df_RHEA_copy, rhea_to_reaction_smarts, on = "RHEA_ID")
+        
         # multiprocessing to create the dataset faster
         parallel_callback = Parallel(n_jobs=-1, backend="multiprocessing", prefer="threads")
         with tqdm_joblib(tqdm(desc="create dataset", total=len(df_RHEA))):
@@ -210,7 +233,7 @@ class EnzymeCompoundPairsAssemblyMetaCyc(EnzymeCompoundPairs):
                 df_RHEA_copy.at[i, "EC number"] = values[0]
         
         # remove rows with missing EC number
-        df_RHEA_copy = df_RHEA_copy[~df_RHEA_copy["EC number"].isna()]
+        # df_RHEA_copy = df_RHEA_copy[~df_RHEA_copy["EC number"].isna()]
         
         df_RHEA_copy = pd.merge(df_RHEA_copy, rhea2uniprot, on = "RHEA_ID", how = "inner")
         df_RHEA_copy = pd.merge(df_RHEA_copy, rhea_to_reaction_smarts, on = "RHEA_ID")

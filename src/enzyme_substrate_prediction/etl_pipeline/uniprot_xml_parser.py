@@ -22,6 +22,7 @@ class UniprotEnzymesNonEnzymesXmlParser():
         protein_accessions = []
         protein_sequences = []
         protein_enzyme = []
+        protein_ec_number = []
         protein_names = []
         lineages = []
         species = []
@@ -90,9 +91,11 @@ class UniprotEnzymesNonEnzymesXmlParser():
                         lineages.append(";".join(current_lineage))
                         species.append(current_species)
                         taxonomy_ids.append(current_taxonomy_id)
+                        protein_ec_number.append(";".join(current_ECs))
                 else:
                     protein_accessions.append(current_protein_accession)
                     protein_sequences.append(current_protein_sequence)
+                    protein_ec_number.append(";".join(current_ECs))
                     if have_EC:
                         protein_enzyme.append(1)
                     else:
@@ -117,11 +120,12 @@ class UniprotEnzymesNonEnzymesXmlParser():
             pd.DataFrame({"accession": protein_accessions,
                         "name": protein_names,
                         "sequence": protein_sequences,
-                        "enzyme": protein_enzyme}).to_csv(output_filename, index=False)
+                        "EC": protein_ec_number}).to_csv(output_filename, index=False)
         else:
             pd.DataFrame({"accession": protein_accessions,
                         "name": protein_names,
                         "sequence": protein_sequences,
+                        "EC": protein_ec_number,
                         "enzyme": protein_enzyme,
                         "lineage": lineages,
                         "species": species,

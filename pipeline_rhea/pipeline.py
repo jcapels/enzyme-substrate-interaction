@@ -1,10 +1,10 @@
 import luigi
 
-from enzyme_substrate_prediction.etl_pipeline.filter_compounds import FilterCompounds
+from enzyme_substrate_prediction.etl_pipeline.assemble_negative_cases import FinalDatasetAssembler
 
 
 
 if __name__ == "__main__":
 
-    luigi.build([FilterCompounds()], workers=1, scheduler_host = '127.0.0.1',
+    luigi.build([FinalDatasetAssembler()], workers=1, scheduler_host = '127.0.0.1',
         scheduler_port = 8083, local_scheduler = True)

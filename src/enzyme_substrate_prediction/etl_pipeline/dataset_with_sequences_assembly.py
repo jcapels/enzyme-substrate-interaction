@@ -2,6 +2,7 @@ import luigi
 import pandas as pd
 from luigi.parameter import ParameterVisibility
 
+from enzyme_substrate_prediction.etl_pipeline.download import UniprotScraper
 from enzyme_substrate_prediction.etl_pipeline.enzyme_compound_pairs_assembly import EnzymeCompoundPairs, EnzymeCompoundPairsAssemblyMetaCyc
 
 class SequencesAssembler(luigi.Task):
@@ -9,9 +10,9 @@ class SequencesAssembler(luigi.Task):
 
     def requires(self):
         if self.directionality == "UNK":
-            return [EnzymeCompoundPairs()]
+            return [EnzymeCompoundPairs(), UniprotScraper()]
         elif self.directionality == "MetaCyc":
-            return [EnzymeCompoundPairsAssemblyMetaCyc()]
+            return [EnzymeCompoundPairsAssemblyMetaCyc(), UniprotScraper()]
         else:
             raise ValueError("Invalid directionality parameter. It should be 'UNK' or 'MetaCyc'.")
 
@@ -40,8 +41,21 @@ class SequencesAssembler(luigi.Task):
         df_RHEA_smiles = pd.merge(df_RHEA, rhea_chebi, on = "CHEBI_ID", how = "inner")
 
         swiss_prot_enzymes = pd.read_csv(self.input()[2].path)
-        swiss_prot_enzymes.drop(["name", "enzyme"], axis=1, inplace=True)
+        swiss_prot_enzymes.drop(["name", "EC"], axis=1, inplace=True)
         swiss_prot_enzymes.columns = ["uniprot_id", "sequence"]
 
         df_RHEA_smiles_sequences = pd.merge(df_RHEA_smiles, swiss_prot_enzymes, on = "uniprot_id", how = "inner")
+
+        swiss_prot_enzymes = pd.read_csv(self.input()[2].path)
+        enzymes = swiss_prot_enzymes[~swiss_prot_enzymes["EC"].isna()]
+        enzymes.columns = ["uniprot_id", "name", "sequence", "EC number"]
+        enzymes.drop(["name", "sequence"], inplace=True, axis=1)
+
+        dataset = df_RHEA_smiles_sequences[df_RHEA_smiles_sequences["EC number"].isna()].drop(["EC number"], axis=1)
+        dataset = pd.merge(dataset, enzymes, on="uniprot_id", how="inner")
+        
+        incomplete_ecs = dataset[(~dataset["EC number"].str.contains(";") & dataset["EC number"].str.contains("-"))]
+        df_RHEA_smiles_sequences = df_RHEA_smiles_sequences[~df_RHEA_smiles_sequences["EC number"].isna()]
+        df_RHEA_smiles_sequences = pd.concat((df_RHEA_smiles_sequences, incomplete_ecs))
+
         df_RHEA_smiles_sequences.to_csv(self.output().path, index=False)
