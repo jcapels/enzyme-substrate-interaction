@@ -22,12 +22,13 @@ class NegativeCasesGenerator(luigi.Task):
         return FilterCompounds()
     
     def input(self):
-        return [luigi.LocalTarget('RHEA_enzyme_compound_pairs_sequence_smiles_filtered.csv'),
-                luigi.LocalTarget('../clusters')]
+        return [luigi.LocalTarget('RHEA_enzyme_compound_pairs_sequence_smiles_filtered.csv')]
     
     def output(self):
-        return [luigi.LocalTarget('RHEA_negative_cases.csv'), luigi.LocalTarget("similarity_matrix.csv"),
-                luigi.LocalTarget("CHEBI_ID_uniprot_id.pkl"), luigi.LocalTarget("uniprot_ids_for_negative_cases.pkl")]
+        return [luigi.LocalTarget("similarity_matrix.csv"),
+                luigi.LocalTarget("CHEBI_ID_uniprot_id.pkl"), 
+                luigi.LocalTarget("uniprot_ids_for_negative_cases.pkl"), 
+                luigi.LocalTarget('RHEA_negative_cases_random.csv')]
     
     def np_array_to_bit_vector(fv: np.array):
         bv = ExplicitBitVect(len(fv))
@@ -130,8 +131,8 @@ class NegativeCasesGenerator(luigi.Task):
             except KeyError:
                 continue
         return negative_cases
-    
-    def run(self):
+
+    def _generate_challenging_negative_cases(self):
         
         self.set_clusters_of_protein_identity_threshold()
 
@@ -160,6 +161,8 @@ class NegativeCasesGenerator(luigi.Task):
             negative_cases_ = self.get_negative_cases(reaction_id, uniprot_ids_for_negative_cases, similarity_matrix_pd, CHEBI_ID_uniprot_id)
             negative_cases.extend(negative_cases_)
 
+        bar.close()
+
         negative_cases = pd.DataFrame(negative_cases, columns=["RHEA_ID", "CHEBI_ID", "uniprot_id", "protein_identity_threshold", "compound_similarity"])
 
         negative_cases.sort_values(by=["protein_identity_threshold", "compound_similarity"], ascending=False, inplace=True)
@@ -167,7 +170,7 @@ class NegativeCasesGenerator(luigi.Task):
         negative_cases["protein_identity_"] = negative_cases["protein_identity_threshold"] * 0.01
 
         negative_cases.to_csv(self.output()[0].path, index=False)
-        bar.close()
+        
         similarity_matrix_pd.to_csv(self.output()[1].path, index=False)
 
         # save CHEBI_ID_uniprot_id in pickle
@@ -176,6 +179,58 @@ class NegativeCasesGenerator(luigi.Task):
 
         with open(self.output()[3].path, "wb") as f:
             pickle.dump(uniprot_ids_for_negative_cases, f)
+
+    def _generate_randomly(self):
+            
+        uniprot_ids = self.positive_dataset.uniprot_id.unique()
+        chebi_ids = self.positive_dataset.CHEBI_ID.unique()
+        
+        uniprot_ids_chebi_ids = list((self.positive_dataset.CHEBI_ID + "_" + self.positive_dataset.uniprot_id).values)
+
+        number_of_positive_cases = len(uniprot_ids_chebi_ids)
+        negative_cases = []
+        for i in tqdm(range(number_of_positive_cases), desc="Generating negative cases randomly"):
+            stop = False
+            while not stop:
+                uniprot_id = np.random.choice(uniprot_ids)
+                chebi_id = np.random.choice(chebi_ids)
+                rhea_reactions = self.chebi_ids_rhea_ids[chebi_id]
+                j = 0
+
+                # just to ensure that we don't get the same reaction
+                rhea_reaction = rhea_reactions[j]
+                while f"{rhea_reaction}_{uniprot_id}" in self.uniprot_ids_rhea_ids:
+                    j += 1
+                    if j == len(rhea_reactions):
+                        rhea_reaction = None
+                    else:
+                        rhea_reaction = rhea_reactions[j]
+
+                if rhea_reaction is not None and f"{chebi_id}_{uniprot_id}" not in uniprot_ids_chebi_ids:
+                    stop = True
+
+            uniprot_ids_chebi_ids.append(f"{chebi_id}_{uniprot_id}")
+            self.uniprot_ids_rhea_ids.append(f"{rhea_reaction}_{uniprot_id}")
+
+            negative_cases.append([f"fake_{rhea_reaction}", chebi_id, uniprot_id, np.nan, np.nan])
+        
+        negative_cases = pd.DataFrame(negative_cases, columns=["RHEA_ID", "CHEBI_ID", "uniprot_id", "protein_identity_threshold", "compound_similarity"])
+        negative_cases.to_csv(self.output()[-1].path, index=False)                         
+    
+    def run(self):
+        self.positive_dataset = pd.read_csv(self.input()[0].path)
+        self.uniprot_ids_rhea_ids = list((self.positive_dataset.RHEA_ID.astype(str) + "_" + self.positive_dataset.uniprot_id).values)
+        # get a dictionary with chebi_ids as keys and rhea_ids as values
+        self.chebi_ids_rhea_ids = {}
+        for chebi_id in tqdm(self.positive_dataset.CHEBI_ID.unique()):
+            self.chebi_ids_rhea_ids[chebi_id] = list(self.positive_dataset[self.positive_dataset.CHEBI_ID == chebi_id].RHEA_ID.unique())
+
+        import pickle
+        with open("chebi_ids_rhea_ids.pkl", "wb") as f:
+            pickle.dump(self.chebi_ids_rhea_ids, f)
+
+        self._generate_randomly()
+        # self._generate_challenging_negative_cases()
 
 
         

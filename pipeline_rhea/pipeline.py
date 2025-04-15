@@ -1,6 +1,7 @@
 import luigi
 
 from enzyme_substrate_prediction.etl_pipeline.assemble_negative_cases import FinalDatasetAssembler
+from enzyme_substrate_prediction.etl_pipeline.split import SplittingMultiModalDataset
 
 
 

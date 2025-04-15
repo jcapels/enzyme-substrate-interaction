@@ -1,0 +1,80 @@
+import luigi
+
+from enzyme_substrate_prediction.datasets_integration.filter_by_enzymes import EnzymeFilter
+
+import pandas as pd
+
+import os
+from deepmol.loaders import CSVLoader
+from deepmol.compound_featurization import ThreeDimensionalMoleculeGenerator
+
+from deepmol.loaders import SDFLoader
+from deepmol.compound_featurization import All3DDescriptors, MixedFeaturizer, TwoDimensionDescriptors
+from plants_sm.io.pickle import write_pickle
+
+from enzyme_substrate_prediction.datasets_integration.merge_with_augmented_data import csv_to_fasta
+
+
+class DataAugmenterAnd3DGenerator(luigi.Task):
+
+    def requires(self):
+        return EnzymeFilter()
+
+    def run(self):
+
+        dataset = pd.read_csv("augmented_dataset.csv")
+
+        dataset.drop_duplicates(subset="SMILES").to_csv("unique_compounds.csv", index=False)
+
+        # Processing parameters
+        timeout = 200
+        threads = 50
+        n_conformations = 1
+        max_iterations = 100
+        etkdg_version = 3
+        mode = "MMFF94"
+
+        dataset = CSVLoader("unique_compounds.csv", id_field="Substrate ID", smiles_field="SMILES").create_dataset()
+                    
+        # Generate 3D conformers
+        generator = ThreeDimensionalMoleculeGenerator(
+            timeout_per_molecule=timeout, threads=threads,
+            n_conformations=n_conformations, max_iterations=max_iterations
+        )
+        generator.generate(dataset, etkdg_version=etkdg_version, mode=mode)
+
+        # Save as SDF
+        output_sdf_path = os.path.join("unique_compounds_conformers.sdf")
+        dataset.to_sdf(output_sdf_path)
+
+        compounds_dataset = SDFLoader("unique_compounds_conformers.sdf", id_field="_ID").create_dataset()
+
+        MixedFeaturizer([All3DDescriptors(mandatory_generation_of_conformers=False), TwoDimensionDescriptors()]).featurize(compounds_dataset, inplace=True) 
+
+        compounds_dataset.to_sdf(path="unique_compounds_with_features.sdf")
+
+        dataset = pd.read_csv("augmented_dataset.csv")
+
+        dataset[dataset["Substrate ID"].isin(compounds_dataset.ids)].to_csv("augmented_dataset_descriptors_available.csv", index=False)
+        compounds_dataset.to_csv("unique_compounds_with_features.csv", index=False)
+
+
+        compounds_with_features = pd.read_csv("unique_compounds_with_features.csv")
+        features_dict = compounds_with_features.set_index('ids').drop(columns='smiles').apply(lambda row: row.to_numpy(), axis=1).to_dict()
+        write_pickle("compounds_features.pkl", features_dict)
+
+        dataset = pd.read_csv("augmented_dataset_descriptors_available.csv")
+        dataset["Enzyme ID"] = dataset["Enzyme ID"].str.replace(" ", "_")
+        dataset.to_csv("augmented_dataset_descriptors_available.csv", index=False)
+
+        dataset.drop_duplicates(subset=["Sequence"]).loc[:, ["Sequence", "Enzyme ID"]].to_csv("unique_enzymes_augmented.csv", index=False)
+
+        # Example usage
+        csv_file_path = 'unique_enzymes_augmented.csv'  # Path to your CSV file
+        fasta_file_path = 'unique_enzymes_augmented.fasta'  # Path to save the FASTA file
+        csv_to_fasta(csv_file_path, fasta_file_path)
+
+        dataset[dataset["Validated"]==True].to_csv("unique_enzymes_curated.csv", index=False)
+        fasta_file_path = 'unique_enzymes_curated.fasta'
+        csv_to_fasta(csv_file_path, fasta_file_path)
+

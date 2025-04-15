@@ -19,12 +19,12 @@ class NegativeCasesAssembler(luigi.Task):
         return [NegativeCasesGenerator()]
     
     def output(self):
-        return luigi.LocalTarget('RHEA_negative_cases_with_sequences_smiles.csv')
+        return [luigi.LocalTarget('RHEA_negative_cases_random_with_sequences_smiles.csv')]
     
     def input(self):
-        return [luigi.LocalTarget('RHEA_negative_cases.csv'), luigi.LocalTarget("similarity_matrix.csv"),
+        return [luigi.LocalTarget("similarity_matrix.csv"),
                 luigi.LocalTarget("CHEBI_ID_uniprot_id.pkl"), luigi.LocalTarget("uniprot_ids_for_negative_cases.pkl"),
-                luigi.LocalTarget("RHEA_enzyme_compound_pairs_sequence_smiles_filtered.csv")]
+                luigi.LocalTarget("RHEA_enzyme_compound_pairs_sequence_smiles_filtered.csv"), luigi.LocalTarget('RHEA_negative_cases_random.csv')]
     
     def get_sample_for_negative_cases(self, number_of_data_points, percentage, protein_identity, lb_compound_similarity, up_compound_similarity):
         if lb_compound_similarity == up_compound_similarity:
@@ -72,6 +72,19 @@ class NegativeCasesAssembler(luigi.Task):
                     while pair in self.CHEBI_ID_uniprot_id:
                         member = random.choice(uniprot_ids)
                         pair = f"{chebi_id}_{member}"
+
+                        rhea_reactions = self.chebi_ids_rhea_ids[chebi_id]
+                        j = 0
+
+                        # just to ensure that we don't get the same reaction
+                        rhea_reaction = rhea_reactions[j]
+                        while f"{rhea_reaction}_{member}" in self.uniprot_ids_rhea_ids:
+                            j += 1
+                            if j == len(rhea_reactions):
+                                rhea_reaction = None
+                                break
+                            rhea_reaction = rhea_reactions[j]
+
                     
                     negative_cases.append([f"fake_{reaction_id}", chebi_id, member, NaN, 1])
                     self.CHEBI_ID_uniprot_id.append(pair)
@@ -110,9 +123,8 @@ class NegativeCasesAssembler(luigi.Task):
                 continue
         
         return negative_cases
-    
-    def run(self):
-        
+
+    def _run_for_challenging_cases(self):
         # read pickle files
         with open(self.input()[2].path, "rb") as f:
             self.CHEBI_ID_uniprot_id = pickle.load(f)
@@ -127,12 +139,11 @@ class NegativeCasesAssembler(luigi.Task):
         # get the number of data points
         number_of_data_points = len(self.positive_dataset)
 
-        final_negative_cases = pd.concat([self.get_sample_for_negative_cases(number_of_data_points, 0.45, 90, 1, 1),
-                                    self.get_sample_for_negative_cases(number_of_data_points, 0.1, 90, 0.9, 1),
-                                    self.get_sample_for_negative_cases(number_of_data_points, 0.02, 80, 0.9, 1),
-                                    self.get_sample_for_negative_cases(number_of_data_points, 0.1, 80, 0.8, 0.9),
-                                    self.get_sample_for_negative_cases(number_of_data_points, 0.02, 60, 0.6, 0.8),
-                                    self.get_sample_for_negative_cases(number_of_data_points, 0.02, 40, 0.6, 0.8)])
+        final_negative_cases = pd.concat([self.get_sample_for_negative_cases(number_of_data_points, 0.19, 90, 0.75, 0.95),
+                                    self.get_sample_for_negative_cases(number_of_data_points, 0.19, 80, 0.75, 0.95),
+                                    self.get_sample_for_negative_cases(number_of_data_points, 0.19, 60, 0.75, 0.95),
+                                    self.get_sample_for_negative_cases(number_of_data_points, 0.19, 60, 0.6, 0.8),
+                                    self.get_sample_for_negative_cases(number_of_data_points, 0.19, 40, 0.6, 0.8)])
         
         final_negative_cases.drop_duplicates(subset=["CHEBI_ID", "uniprot_id"], inplace=True)
         final_negative_cases_CHEBI_ID_uniprot_id = final_negative_cases["CHEBI_ID"] + "_" + final_negative_cases["uniprot_id"]
@@ -220,7 +231,56 @@ class NegativeCasesAssembler(luigi.Task):
 
         df_RHEA_smiles_sequences = pd.merge(df_RHEA_smiles, swiss_prot_enzymes, on = "uniprot_id", how = "inner")
 
-        df_RHEA_smiles_sequences.to_csv(self.output().path, index=False)
+        positives_with_reaction_smiles_only = self.positive_dataset[["RHEA_ID", "reaction_SMILES"]]
+        positives_with_reaction_smiles_only["RHEA_ID"] = positives_with_reaction_smiles_only["RHEA_ID"].astype(str)
+        positives_with_reaction_smiles_only["RHEA_ID"] = "fake_" + positives_with_reaction_smiles_only["RHEA_ID"]
+        positives_with_reaction_smiles_only = positives_with_reaction_smiles_only.drop_duplicates()
+
+        df_RHEA_smiles_sequences = pd.merge(df_RHEA_smiles_sequences, positives_with_reaction_smiles_only, on="RHEA_ID", how="inner")
+
+        df_RHEA_smiles_sequences.to_csv(self.output()[0].path, index=False)
+
+    def _run_for_random_cases(self):
+        negative_cases = pd.read_csv(self.input()[4].path)
+
+        rhea_chebi = pd.read_csv("rhea-chebi-smiles.tsv", sep="\t", header=None)
+        rhea_chebi.columns = ["CHEBI_ID", "SMILES"]
+        rhea_chebi.drop_duplicates(inplace=True)
+        negative_cases = pd.merge(negative_cases, rhea_chebi, on = "CHEBI_ID", how = "inner")
+
+        swiss_prot_enzymes = pd.read_csv("swiss_prot_enzymes.csv")
+        swiss_prot_enzymes.drop(["name", "EC"], axis=1, inplace=True)
+        swiss_prot_enzymes.columns = ["uniprot_id", "sequence"]
+
+        negative_cases = pd.merge(negative_cases, swiss_prot_enzymes, on = "uniprot_id", how = "inner")
+
+        self.positive_dataset = pd.read_csv(self.input()[3].path)
+        positives_with_reaction_smiles_only = self.positive_dataset[["RHEA_ID", "reaction_SMILES"]]
+        positives_with_reaction_smiles_only["RHEA_ID"] = positives_with_reaction_smiles_only["RHEA_ID"].astype(str)
+        positives_with_reaction_smiles_only["RHEA_ID"] = "fake_" + positives_with_reaction_smiles_only["RHEA_ID"]
+        positives_with_reaction_smiles_only = positives_with_reaction_smiles_only.drop_duplicates()
+
+        negative_cases = pd.merge(negative_cases, positives_with_reaction_smiles_only, on="RHEA_ID", how="inner")
+
+        negative_cases.to_csv(self.output()[0].path, index=False)
+
+    
+    def run(self):
+        import pickle
+        with open("chebi_ids_rhea_ids.pkl", "rb") as f:
+            self.chebi_ids_rhea_ids = pickle.load(f)
+
+        self.positive_dataset = pd.read_csv(self.input()[3].path)
+        self.uniprot_ids_rhea_ids = list((self.positive_dataset.RHEA_ID.astype(str) + "_" + self.positive_dataset.uniprot_id).values)
+
+        self._run_for_random_cases()
+        # self._run_for_challenging_cases()
+        [luigi.LocalTarget("similarity_matrix.csv"),
+                luigi.LocalTarget("CHEBI_ID_uniprot_id.pkl"), luigi.LocalTarget("uniprot_ids_for_negative_cases.pkl"),
+                luigi.LocalTarget("RHEA_enzyme_compound_pairs_sequence_smiles_filtered.csv"), luigi.LocalTarget('RHEA_negative_cases_random.csv')]
+    
+        
+        
 
 class FinalDatasetAssembler(luigi.Task):
 
@@ -228,19 +288,29 @@ class FinalDatasetAssembler(luigi.Task):
         return [NegativeCasesAssembler(), FilterCompounds()]
     
     def output(self):
-        return luigi.LocalTarget('RHEA_final_dataset.csv')
+        return [luigi.LocalTarget('RHEA_final_dataset.csv'), luigi.LocalTarget('RHEA_final_dataset_random.csv')]
     
     def input(self):
-        return [luigi.LocalTarget('RHEA_negative_cases_with_sequences_smiles.csv'), luigi.LocalTarget('RHEA_enzyme_compound_pairs_sequence_smiles_filtered.csv')]
+        return [luigi.LocalTarget('RHEA_enzyme_compound_pairs_sequence_smiles_filtered.csv'), 
+               luigi.LocalTarget('RHEA_negative_cases_random_with_sequences_smiles.csv')]
     
     def run(self):
 
-        positives = pd.read_csv(self.input()[1].path)
-        negatives = pd.read_csv(self.input()[0].path)
+        positives = pd.read_csv(self.input()[0].path)
+        # negatives = pd.read_csv(self.input()[1].path)
 
-        negatives.drop(columns=["protein_identity_threshold", "compound_similarity", "protein_identity_"], inplace=True)
-        negatives["interaction"] = 0
+        # negatives.drop(columns=["protein_identity_threshold", "compound_similarity", "protein_identity_"], inplace=True)
+        # negatives["interaction"] = 0
         positives["interaction"] = 1
         
-        final_dataset = pd.concat([positives, negatives])
-        final_dataset.to_csv(self.output().path, index=False)
+        # final_dataset = pd.concat([positives, negatives])
+        # final_dataset.RHEA_ID = "RHEA:" + final_dataset.RHEA_ID.astype(str)
+        # final_dataset.to_csv(self.output()[0].path, index=False)
+
+        negatives_random = pd.read_csv(self.input()[1].path)
+        negatives_random.drop(columns=["protein_identity_threshold", "compound_similarity"], inplace=True)
+        negatives_random["interaction"] = 0
+        final_dataset_random = pd.concat([positives, negatives_random])
+        final_dataset_random.RHEA_ID = "RHEA:" + final_dataset_random.RHEA_ID.astype(str)
+        final_dataset_random.to_csv(self.output()[1].path, index=False)
+
