@@ -8,6 +8,8 @@ cdhit
 # C extensions
 *.so
 
+my_interproscan/
+
 # Distribution / packaging
 .Python
 build/
