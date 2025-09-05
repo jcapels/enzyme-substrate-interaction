@@ -125,7 +125,9 @@ def load_datasets_compounds(ids_for_datasets, random_state=42, merge_validation_
             datasets.append((train_dataset, validation_dataset, test_dataset))
     return datasets
 
-depth_array = [6,7,8,9,10,11,12,13,14]
+depth_array = [6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25]
+max_bin = [64, 128, 256, 512, 1024]
+
 space_gradient_boosting = {"learning_rate": hp.uniform("learning_rate", 0.01, 0.5),
     "max_depth": hp.choice("max_depth", depth_array),
     "reg_lambda": hp.uniform("reg_lambda", 0, 5),
@@ -134,12 +136,14 @@ space_gradient_boosting = {"learning_rate": hp.uniform("learning_rate", 0.01, 0.
     "min_child_weight": hp.uniform("min_child_weight", 0.1, 15),
     "num_rounds":  hp.uniform("num_rounds", 30, 1000),
     "weight" : hp.uniform("weight", 0.01,0.99),
-    "max_bin": hp.choice("max_bin", [64, 128, 256, 512]),}
+    "max_bin": hp.choice("max_bin", max_bin)
+}
 
 def set_param_values_V2(param, dtrain):
     num_round = int(param["num_rounds"])
     param["tree_method"] = "hist"
     param["max_depth"] = int(depth_array[param["max_depth"]])
+    param["max_bin"] = int(max_bin[param["max_bin"]])
     # param["tree_method"] = "gpu_hist"
     param["sampling_method"] = "gradient_based"
     param["device"] = "cuda:2"
@@ -151,7 +155,68 @@ def set_param_values_V2(param, dtrain):
     del param["weight"]
     return(param, num_round, dtrain)
 
-def train_gb(train_dataset, validation_dataset, test_dataset, save_pred_path, model_name):
+def get_performance(pred, true):
+    MCC = matthews_corrcoef(true, np.round(pred))
+    return(-MCC)
+
+def train_with_batches(param, num_round, dtrain, num_batches=1):
+    np.random.seed(42)
+    try:
+        total_size = len(dtrain.get_label())
+        batch_size = total_size // num_batches
+        rounds_per_batch = num_round // num_batches
+
+        # Random permutation of indices
+        indices = np.random.permutation(total_size)
+
+        bst = None
+        for i in range(num_batches):
+            start = i * batch_size
+            end = (i + 1) * batch_size if i < num_batches - 1 else total_size
+            batch_idx = indices[start:end]
+
+            dtrain_batch = xgb.DMatrix(
+                data=dtrain.get_data()[batch_idx],
+                label=dtrain.get_label()[batch_idx]
+            )
+
+            if bst is None:
+                # First batch
+                bst = xgb.train(param, dtrain_batch, num_boost_round=rounds_per_batch)
+            else:
+                # Continue training
+                bst = xgb.train(param, dtrain_batch, num_boost_round=rounds_per_batch, xgb_model=bst)
+
+        param["num_rounds"] = num_round
+        return bst
+
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        return None
+    
+def fit_xgboost(param, dtrain, num_round):
+    try:
+        #Training:
+        bst = xgb.train(param,  dtrain, num_round)
+        param["num_rounds"] = num_round
+        return bst
+    except Exception as e:
+        
+        batches = 2
+        print(f"Single batch training failed. Trying with {batches}")
+        bst = train_with_batches(param, num_round, dtrain, num_batches=batches)
+        while bst is None and batches < 30:
+            batches += 1
+            print(f"Trying with {batches}")
+            bst = train_with_batches(param, num_round, dtrain, num_batches=batches)
+        if bst is None:
+            print("Failed to train model even with batching.")
+            return None
+        else:
+            print(f"Succeeded with {batches} batches.")
+            return bst
+
+def train_gb(train_dataset, validation_dataset, test_dataset, save_pred_path, model_name, max_evals=500):
 
     def set_param_values(param):
         num_round = int(param["num_rounds"])
@@ -169,15 +234,11 @@ def train_gb(train_dataset, validation_dataset, test_dataset, save_pred_path, mo
 
     def get_predictions(param, dM_train, dM_val):
         param, num_round, dM_train = set_param_values_V2(param = param, dtrain = dM_train)
-        bst = xgb.train(param,  dM_train, num_round)
+        bst = fit_xgboost(param, dM_train, num_round)
         y_val_pred = bst.predict(dM_val)
         return(y_val_pred)
     
 
-    def get_performance(pred, true):
-        MCC = matthews_corrcoef(true, np.round(pred))
-        return(-MCC)
-    
     def get_performance_metrics(pred, true):
         acc = np.mean(np.round(pred) == np.array(true))
         roc_auc = roc_auc_score(np.array(true), pred)
@@ -193,32 +254,26 @@ def train_gb(train_dataset, validation_dataset, test_dataset, save_pred_path, mo
     dvalid = xgb.DMatrix(np.array(val_X_all), label = np.array(validation_dataset.y).astype(float))
     dtrain_val = xgb.DMatrix(np.concatenate([np.array(train_X_all), np.array(val_X_all)], axis = 0),
                                     label = np.concatenate([np.array(train_dataset.y).astype(float),np.array(validation_dataset.y).astype(float)], axis = 0))
-
+    
     def train_xgboost_model_all(param):
         param, num_round = set_param_values(param)
-        try:
-            #Training:
-            bst = xgb.train(param,  dtrain, num_round)
-            param["num_rounds"] = num_round
-            return(get_performance(pred = bst.predict(dvalid), true =validation_dataset.y))
-        except Exception as e:
-            # param, num_round = set_param_values(param)
-            param["grow_policy"] = "lossguide"
-            param["max_bin"] = 64
-            print(e)
-            #Training:
-            bst = xgb.train(param,  dtrain, num_round)
-            param["num_rounds"] = num_round
-            return(get_performance(pred = bst.predict(dvalid), true =validation_dataset.y))
+        bst = fit_xgboost(param, dtrain, num_round)
+        if bst is None:
+            print("Failed to train model even with batching.")
+            return 0
+        else:
+            return get_performance(pred=bst.predict(dvalid), true=validation_dataset.y)
 
     trials = Trials()
     best = fmin(fn = train_xgboost_model_all, space = space_gradient_boosting,
-                algo = rand.suggest, max_evals = 500, trials = trials)
-    print(best)
-    
-    y_val_pred_all = get_predictions(param = trials.argmin, dM_train = dtrain, dM_val = dvalid)
+                algo = rand.suggest, max_evals = max_evals, trials = trials)
+    best_copy = best.copy()
+
+    y_val_pred_all = get_predictions(param = best_copy, dM_train = dtrain, dM_val = dvalid)
     get_performance_metrics(pred = y_val_pred_all, true = validation_dataset.y)
-    y_test_pred_all = get_predictions(param = trials.argmin, dM_train = dtrain_val, dM_val = dtest)
+
+    best_copy = best.copy()
+    y_test_pred_all = get_predictions(param = best_copy, dM_train = dtrain_val, dM_val = dtest)
     get_performance_metrics(pred = y_test_pred_all, true = test_dataset.y)
 
     os.makedirs(save_pred_path, exist_ok=True)
@@ -253,7 +308,8 @@ def evaluate_model(model_name, save_pred_path, train_dataset, validation_dataset
 
         best["seed"] = seed
         best, num_round, dtrain = set_param_values_V2(best, dtrain)
-        bst = xgb.train(best,  dtrain, num_round)
+        bst = fit_xgboost(best, dtrain, num_round)
+
 
         predictions_proba = bst.predict(dtest)
         predictions = np.round(predictions_proba)
@@ -291,7 +347,7 @@ def experiment_optimize(splits, name, proteins_split):
         datasets = load_datasets_compounds(splits)
     
     train_dataset, validation_dataset, test_dataset = datasets[0]
-    train_gb(train_dataset, validation_dataset, test_dataset, "xgb_np_esm2", model_name=name)
+    train_gb(train_dataset, validation_dataset, test_dataset, "xgb_np_esm2", model_name=name, max_evals=200)
     evaluate_model(name, "xgb_np_esm2", train_dataset, validation_dataset, test_dataset)
 
 
