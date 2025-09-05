@@ -1,6 +1,6 @@
 import luigi
 
-from enzyme_substrate_prediction.datasets_integration.filter_by_enzymes import EnzymeFilter
+from enzyme_substrate_prediction.datasets_integration.filter_by_enzymes import EnzymeFilter, Merger
 
 import pandas as pd
 
@@ -18,7 +18,7 @@ from enzyme_substrate_prediction.datasets_integration.merge_with_augmented_data 
 class DataAugmenterAnd3DGenerator(luigi.Task):
 
     def requires(self):
-        return EnzymeFilter()
+        return Merger()
 
     def run(self):
 
@@ -47,6 +47,21 @@ class DataAugmenterAnd3DGenerator(luigi.Task):
         output_sdf_path = os.path.join("unique_compounds_conformers.sdf")
         dataset.to_sdf(output_sdf_path)
 
+        from deepmol.loaders._utils import load_sdf_file
+
+        mols = load_sdf_file("unique_compounds_conformers.sdf")
+        ids = []
+        for mol in mols:
+            id_ = mol.GetProp("_ID")
+            ids.append(id_)
+
+        df = pd.DataFrame({"ids":ids, "mols": mols})
+        df = df.drop_duplicates(subset="ids")
+        from deepmol.datasets import SmilesDataset
+
+        dataset = SmilesDataset(smiles=df.mols, mols=df.mols, ids=df.ids)
+        dataset.to_sdf("unique_compounds_conformers.sdf")
+
         compounds_dataset = SDFLoader("unique_compounds_conformers.sdf", id_field="_ID").create_dataset()
 
         MixedFeaturizer([All3DDescriptors(mandatory_generation_of_conformers=False), TwoDimensionDescriptors()]).featurize(compounds_dataset, inplace=True) 
@@ -67,14 +82,16 @@ class DataAugmenterAnd3DGenerator(luigi.Task):
         dataset["Enzyme ID"] = dataset["Enzyme ID"].str.replace(" ", "_")
         dataset.to_csv("augmented_dataset_descriptors_available.csv", index=False)
 
-        dataset.drop_duplicates(subset=["Sequence"]).loc[:, ["Sequence", "Enzyme ID"]].to_csv("unique_enzymes_augmented.csv", index=False)
+        dataset.drop_duplicates(subset=["Enzyme ID"]).loc[:, ["Sequence", "Enzyme ID"]].to_csv("unique_enzymes_augmented.csv", index=False)
 
-        # Example usage
         csv_file_path = 'unique_enzymes_augmented.csv'  # Path to your CSV file
         fasta_file_path = 'unique_enzymes_augmented.fasta'  # Path to save the FASTA file
         csv_to_fasta(csv_file_path, fasta_file_path)
 
-        dataset[dataset["Validated"]==True].to_csv("unique_enzymes_curated.csv", index=False)
+        dataset[dataset["Validated"]==True].drop_duplicates(subset=["Enzyme ID"]).loc[:, ["Sequence", "Enzyme ID"]].to_csv("unique_enzymes_curated.csv", index=False)
         fasta_file_path = 'unique_enzymes_curated.fasta'
+        csv_file_path = 'unique_enzymes_curated.csv'
         csv_to_fasta(csv_file_path, fasta_file_path)
+
+        dataset[dataset["Validated"]==True].to_csv("curated_dataset.csv", index=False)
 

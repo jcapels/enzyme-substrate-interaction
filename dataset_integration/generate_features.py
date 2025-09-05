@@ -19,7 +19,7 @@ if __name__ == "__main__":
     from plants_sm.data_structures.dataset.multi_input_dataset import MultiInputDataset
     # load datasets
 
-    multi_input_dataset = MultiInputDataset.from_csv("integrated_dataset_descriptors_available.csv", representation_field={"ligands": "SMILES", 
+    multi_input_dataset = MultiInputDataset.from_csv("curated_dataset.csv", representation_field={"ligands": "SMILES", 
                                                                                         "proteins": "Sequence"},
                                                                                         instances_ids_field={"ligands": "Substrate ID", 
                                                                                         "proteins": "Enzyme ID"})
@@ -34,9 +34,17 @@ if __name__ == "__main__":
     propythia_descriptors = PropythiaWrapper(preset="all-no-aac")
 
     multi_input_dataset = protein_standardizer.fit_transform(multi_input_dataset, "proteins")
-    # multi_input_dataset = truncator.fit_transform(multi_input_dataset, "proteins")
-    # process_to_spawn(multi_input_dataset)
-    # generate_features_for_compounds(multi_input_dataset)
+    multi_input_dataset = truncator.fit_transform(multi_input_dataset, "proteins")
+
+    process_to_spawn(multi_input_dataset)
+    generate_features_for_compounds(multi_input_dataset)
+
+    multi_input_dataset = MultiInputDataset.from_csv("curated_dataset.csv", representation_field={"ligands": "SMILES", 
+                                                                                        "proteins": "Sequence"},
+                                                                                        instances_ids_field={"ligands": "Substrate ID", 
+                                                                                        "proteins": "Enzyme ID"})
+    multi_input_dataset = protein_standardizer.fit_transform(multi_input_dataset, "proteins")
+
     multi_input_dataset = propythia_descriptors.fit_transform(multi_input_dataset, "proteins")
     multi_input_dataset.save_features("propythia_descriptors")
     

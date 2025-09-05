@@ -11,30 +11,32 @@ from torch.utils.data import Dataset, DataLoader
 
 
 def train_model(dataset, validation_dataset, num_heads_descriptors_cross_attention, num_heads_gat, num_heads_attention, activation_attention, dropout_gat, \
-                                prediction_layers, dropout_attention, batch_size, learning_rate, patience):
+                                prediction_layers, dropout_attention, batch_size, learning_rate, patience, max_epochs = 100):
     
 
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
 
-    val_dataloader = DataLoader(validation_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
+    callbacks = []
+    if validation_dataset is not None:
+        val_dataloader = DataLoader(validation_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
+        # Create the early stopping callback
+        early_stopping_callback = EarlyStopping(
+            monitor='val_loss',  # metric to monitor
+            patience=patience,          # number of epochs with no improvement after which training will be stopped
+            verbose=True,
+            mode='min'           # stop when the metric is minimized
+        )
 
-    # Create the early stopping callback
-    early_stopping_callback = EarlyStopping(
-        monitor='val_loss',  # metric to monitor
-        patience=patience,          # number of epochs with no improvement after which training will be stopped
-        verbose=True,
-        mode='min'           # stop when the metric is minimized
-    )
-
-    # Create the model checkpoint callback
-    checkpoint_callback = ModelCheckpoint(
-        monitor='val_loss',  # metric to monitor
-        dirpath='checkpoints/',  # directory to save the model checkpoints
-        filename='best-checkpoint',  # filename for the best checkpoint
-        save_top_k=1,  # save the top k models
-        mode='min',  # save the model when the metric is minimized
-        verbose=True
-    )
+        # Create the model checkpoint callback
+        checkpoint_callback = ModelCheckpoint(
+            monitor='val_loss',  # metric to monitor
+            dirpath='checkpoints/',  # directory to save the model checkpoints
+            filename='best-checkpoint',  # filename for the best checkpoint
+            save_top_k=1,  # save the top k models
+            mode='min',  # save the model when the metric is minimized
+            verbose=True
+        )
+        callbacks = [early_stopping_callback, checkpoint_callback]
 
     model = MolecularGAT3D(in_dim=10,
                            num_heads_gat=num_heads_gat, num_heads_attention=num_heads_attention, 
@@ -44,15 +46,25 @@ def train_model(dataset, validation_dataset, num_heads_descriptors_cross_attenti
                            learning_rate=learning_rate)
 
 
-    trainer = Trainer(max_epochs=100, devices=[3], callbacks=[early_stopping_callback, checkpoint_callback])
+    trainer = Trainer(max_epochs=max_epochs, devices=[3], callbacks=callbacks)
     # trainer = Trainer(max_epochs=100, accelerator="cpu", callbacks=[early_stopping_callback, checkpoint_callback])
     
-    trainer.fit(model, dataloader, val_dataloaders=val_dataloader)
-    # Load the best model weights
-    best_model_path = checkpoint_callback.best_model_path
-    best_model = MolecularGAT3D.load_from_checkpoint(best_model_path)
+    if validation_dataset is not None:
+        trainer.fit(model, dataloader, val_dataloaders=val_dataloader)
+    else:
+        trainer.fit(model, dataloader)
 
-    return best_model
+    if validation_dataset is not None:
+        best_model_path = checkpoint_callback.best_model_path
+        best_model = MolecularGAT3D.load_from_checkpoint(best_model_path)
+        best_epoch = (trainer.current_epoch - 1) - early_stopping_callback.wait_count
+
+        os.remove(best_model_path)
+        return best_model, best_epoch
+    else:
+        best_model = model
+
+        return best_model, None
 
 def test_model(model, test_dataset):
 
@@ -100,6 +112,9 @@ class BindingExperiment(Experiment):
         self.ids_for_datasets = kwargs.pop("ids_for_datasets")
         self.results_output_file = kwargs.pop("results_output_file")
         self.folder_path = kwargs.pop("folder_path")
+        self.best_result = 0
+        self.best_hyperparameters = {}
+        self.best_epoch = 0
         super().__init__(**kwargs)
 
         self.best_result = float("-inf")
@@ -118,7 +133,7 @@ class BindingExperiment(Experiment):
         # evaluate literal
         prediction_layers = eval(prediction_layers)
 
-        batch_size = trial.suggest_categorical("batch_size", [16, 32, 64, 128])
+        batch_size = trial.suggest_categorical("batch_size", [16, 32, 64])
         # hidden_dim = trial.suggest_categorical("hidden_dim", [256, 512, 1024, 2048])
         num_heads_gat = trial.suggest_categorical("num_heads_gat", [1, 2, 4, 8])
         num_heads_descriptors_cross_attention = trial.suggest_categorical("num_heads_descriptors_cross_attention", [1, 5])
@@ -178,7 +193,7 @@ class BindingExperiment(Experiment):
         # Cross-validation loop
         for train_dataset, validation_dataset, test_dataset in datasets:
             try:
-                model = train_model(train_dataset, validation_dataset, num_heads_descriptors_cross_attention, num_heads_gat, num_heads_attention, activation_attention, dropout_gat, \
+                model, best_epoch = train_model(train_dataset, validation_dataset, num_heads_descriptors_cross_attention, num_heads_gat, num_heads_attention, activation_attention, dropout_gat, \
                                                                         prediction_layers, dropout_attention, batch_size, learning_rate, patience)
             except Exception as e:
                 print("An error occurred:")
@@ -228,7 +243,8 @@ class BindingExperiment(Experiment):
             "num_heads_descriptors_cross_attention": [num_heads_descriptors_cross_attention],
             "prediction_layers": [prediction_layers],
             "dropout_attention": [dropout_attention],
-            "patience": [patience]
+            "patience": [patience],
+            "best_epoch": [best_epoch],
         }
 
         # Create a DataFrame and save to CSV
@@ -236,6 +252,23 @@ class BindingExperiment(Experiment):
         results = pd.concat([results, results_df])
         
         results.to_csv(self.results_output_file, index=False)
+
+        # Save the best model if the current trial is better than the previous best
+        if np.mean(mcc_validation) > self.best_result:
+            self.best_result = np.mean(mcc_validation)
+            self.best_hyperparameters = {
+                "num_heads_descriptors_cross_attention": num_heads_descriptors_cross_attention,
+                "num_heads_gat": num_heads_gat,
+                "num_heads_attention": num_heads_attention,
+                "activation_attention": activation_attention,
+                "dropout_gat": dropout_gat,
+                "prediction_layers": prediction_layers,
+                "dropout_attention": dropout_attention,
+                "batch_size": batch_size,
+                "learning_rate": learning_rate,
+                "patience": patience
+            }
+            self.best_epoch = best_epoch
 
         return np.mean(mcc_validation)
     
@@ -255,7 +288,7 @@ def load_datasets(ids_for_datasets):
     np_classifier_features = read_pickle("features_compounds_np_classifier_fp/features.pkl")["ligands"]
 
     import pandas as pd
-    dataset = pd.read_csv("integrated_dataset_descriptors_available.csv")
+    dataset = pd.read_csv("curated_dataset.csv")
 
     datasets = []
 
@@ -301,13 +334,21 @@ def experiment_optimize(ids_for_datasets):
     for trial in experiment.study.trials:
         if trial.state == optuna.trial.TrialState.FAIL: 
             experiment.study.enqueue_trial(trial.params)
-    experiment.run(n_trials=100, n_jobs=1)
+    experiment.run(n_trials=50, n_jobs=1)
+    test_train_model(ids_for_datasets, num_heads_descriptors_cross_attention=experiment.best_hyperparameters["num_heads_descriptors_cross_attention"],
+                        num_heads_gat=experiment.best_hyperparameters["num_heads_gat"],
+                        num_heads_attention=experiment.best_hyperparameters["num_heads_attention"],
+                        activation_attention=experiment.best_hyperparameters["activation_attention"],
+                        dropout_gat=experiment.best_hyperparameters["dropout_gat"],
+                        prediction_layers=experiment.best_hyperparameters["prediction_layers"],
+                        dropout_attention=experiment.best_hyperparameters["dropout_attention"],
+                        batch_size=experiment.best_hyperparameters["batch_size"],
+                        learning_rate=experiment.best_hyperparameters["learning_rate"],
+                        patience=experiment.best_hyperparameters["patience"],
+                        max_epochs=experiment.best_epoch+1)
 
-def test_train_model():
 
-    from plants_sm.io.pickle import read_pickle
-    ids_for_datasets = read_pickle("splits/splits_0_6_proteins.pkl")
-
+def load_datasets_cv(ids_for_datasets):
     from deepmol.loaders import SDFLoader
 
     dataset = SDFLoader("unique_compounds_with_features.sdf", id_field="_ID").create_dataset()
@@ -323,7 +364,7 @@ def test_train_model():
     np_classifier_features = read_pickle("features_compounds_np_classifier_fp/features.pkl")["ligands"]
 
     import pandas as pd
-    dataset = pd.read_csv("test_integrated_dataset.csv")
+    dataset = pd.read_csv("curated_dataset.csv")
 
     datasets = []
 
@@ -334,18 +375,18 @@ def test_train_model():
         interaction = list(zip(list(train_dataset["Enzyme ID"]), list(train_dataset["Substrate ID"])))
         labels = list(train_dataset["Binding"])
 
-        from copy import copy
-
-        train_dataset = MolecularGraphDataset(copy(molecules_dict), mol_descriptors=compounds_features, protein_descriptors = protein_descriptors,
-                                        proteins_embeddings_dict=enzymes_dict, interactions=interaction, labels=labels, np_classifier_fp_dict=np_classifier_features)
-
         import pandas as pd
 
         validation_dataset = dataset[dataset["Enzyme ID"].isin(val_ids)]
-        interaction = list(zip(list(validation_dataset["Enzyme ID"]), list(validation_dataset["Substrate ID"])))
-        labels = list(validation_dataset["Binding"])
+        validation_interaction = list(zip(list(validation_dataset["Enzyme ID"]), list(validation_dataset["Substrate ID"])))
 
-        validation_dataset = MolecularGraphDataset(copy(molecules_dict), mol_descriptors=compounds_features, protein_descriptors = protein_descriptors,
+        train_dataset = pd.concat([train_dataset, validation_dataset], axis=0)
+        interaction = interaction + validation_interaction
+        labels = labels + list(validation_dataset["Binding"])
+
+        from copy import copy
+
+        train_dataset = MolecularGraphDataset(copy(molecules_dict), mol_descriptors=compounds_features, protein_descriptors = protein_descriptors,
                                         proteins_embeddings_dict=enzymes_dict, interactions=interaction, labels=labels, np_classifier_fp_dict=np_classifier_features)
 
         test_dataset = dataset[dataset["Enzyme ID"].isin(test_ids)]
@@ -353,56 +394,110 @@ def test_train_model():
         labels = list(test_dataset["Binding"])
 
         test_dataset = MolecularGraphDataset(copy(molecules_dict), mol_descriptors=compounds_features, protein_descriptors = protein_descriptors,
-                                    proteins_embeddings_dict=enzymes_dict, interactions=interaction, labels=labels, np_classifier_fp_dict=np_classifier_features)
+                                    proteins_embeddings_dict=enzymes_dict, interactions=interaction, labels=labels, np_classifier_fp_dict=np_classifier_features,
+                                    mol_scaler=train_dataset.mol_scaler, protein_scaler=train_dataset.protein_scaler)
         
-        datasets.append((train_dataset, validation_dataset, test_dataset))
-
-    f1_macro_validation = []
-    precision_validation = []
-    roc_auc_validation = []
-    accuracy_validation = []
-    mcc_validation = []
-
-    f1_macro_test = []
-    precision_test = []
-    roc_auc_test = []
-    accuracy_test = []
-    mcc_test = []
-
-    for train_dataset, validation_dataset, test_dataset in datasets:
-        try:
-            model = train_model(train_dataset, validation_dataset, 1, 1,
-                                2, nn.ReLU(), 0.5,
-                                [2048, 512], 0.3,
-                                128, 0.0010502815562126, 5)
-        except Exception as e:
-            print("An error occurred:")
-            traceback.print_exc()
-            continue  # Skip this fold if an error occurs
-
-        # Evaluate on validation set
-        predictions_probability, predictions, y_true = test_model(model, validation_dataset)
+        datasets.append((train_dataset, test_dataset))
+    return datasets
 
 
-        f1_macro_validation.append(f1_score(y_true, predictions))
-        precision_validation.append(precision_score(y_true, predictions))
-        roc_auc_validation.append(roc_auc_score(y_true, predictions_probability))
-        accuracy_validation.append(accuracy_score(y_true, predictions))
-        mcc_validation.append(matthews_corrcoef(y_true, predictions))
+def test_train_model_cv():
 
-        # Evaluate on test set
-        predictions_probability, predictions, y_true = test_model(model, test_dataset)
-        f1_macro_test.append(f1_score(y_true, predictions))
-        precision_test.append(precision_score(y_true, predictions))
-        roc_auc_test.append(roc_auc_score(y_true, predictions_probability))
-        accuracy_test.append(accuracy_score(y_true, predictions))
-        mcc_test.append(matthews_corrcoef(y_true, predictions))
-    
+    import pytorch_lightning as pl
+
+    from plants_sm.io.pickle import read_pickle
+    ids_for_datasets = read_pickle("splits/splits_0_6_proteins.pkl")
+
+
+    datasets = []
+
+    datasets = load_datasets_cv(ids_for_datasets)
+
+    file_exists = False
+
+    for i in range(5):
+        # Set the seed for all random number generators
+        pl.seed_everything(i, workers=True)
+        fold_idx = 0
+        for train_dataset, test_dataset in datasets:
+            try:
+                model = train_model(train_dataset, None, 5, 4,
+                                    8, nn.LeakyReLU(negative_slope=0.01), 0.3,
+                                    [512], 0.5,
+                                    64, 0.000351, 5, max_epochs=10)
+            except Exception as e:
+                print("An error occurred:")
+                traceback.print_exc()
+                continue  # Skip this fold if an error occurs
+
+            # Evaluate on test set
+            predictions_probability, predictions, y_true = test_model(model, test_dataset)
+            result = {
+                'seed': i,
+                'fold': fold_idx,
+                'f1_macro': f1_score(y_true, predictions),
+                'precision': precision_score(y_true, predictions),
+                'roc_auc': roc_auc_score(y_true, predictions_probability),
+                'accuracy': accuracy_score(y_true, predictions),
+                'mcc': matthews_corrcoef(y_true, predictions),
+                'recall': recall_score(y_true, predictions),
+            }
+            fold_idx+=1
+
+            df = pd.DataFrame([result])
+            df.to_csv("results_gat_np_classifier_10_epochs.csv", mode='a', index=False, header=not file_exists)
+            file_exists = True  # Ensure header is not written again
+
+def test_train_model(splits, num_heads_descriptors_cross_attention=5, num_heads_gat=4,
+                     num_heads_attention=8, activation_attention=nn.LeakyReLU(negative_slope=0.01), dropout_gat=0.3,
+                     prediction_layers=[512], dropout_attention=0.5,
+                     batch_size=64, learning_rate=0.000351, patience=5, max_epochs=10):
+
+    import pytorch_lightning as pl
+
+    datasets = []
+
+    datasets = load_datasets_cv(splits)
+
+    file_exists = False
+
+    for i in range(5):
+        # Set the seed for all random number generators
+        pl.seed_everything(i, workers=True)
+        for train_dataset, test_dataset in datasets:
+            try:
+                model, _ = train_model(train_dataset, None, num_heads_descriptors_cross_attention, num_heads_gat,
+                                   num_heads_attention, activation_attention, dropout_gat,
+                                    prediction_layers, dropout_attention,
+                                    batch_size, learning_rate, patience, max_epochs)
+            except Exception as e:
+                print("An error occurred:")
+                traceback.print_exc()
+                continue  # Skip this fold if an error occurs
+
+            # Evaluate on test set
+            predictions_probability, predictions, y_true = test_model(model, test_dataset)
+            result = {
+                'seed': i,
+                'f1_macro': f1_score(y_true, predictions),
+                'precision': precision_score(y_true, predictions),
+                'roc_auc': roc_auc_score(y_true, predictions_probability),
+                'accuracy': accuracy_score(y_true, predictions),
+                'mcc': matthews_corrcoef(y_true, predictions),
+                'recall': recall_score(y_true, predictions),
+            }
+
+            df = pd.DataFrame([result])
+            df.to_csv("results_gat_np_classifier.csv", mode='a', index=False, header=not file_exists)
+            file_exists = True  # Ensure header is not written again
+
+
+
 
 if __name__ == "__main__":
     import os
     os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
     from plants_sm.io.pickle import read_pickle
-    splits = read_pickle("splits/splits_0_6_proteins.pkl")
+    splits = read_pickle("splits/splits_0_6_proteins_train_val_test.pkl")
     experiment_optimize(splits)
-    # test_train_model()
+    #test_train_model()

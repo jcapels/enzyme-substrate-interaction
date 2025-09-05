@@ -31,8 +31,19 @@ if __name__ == "__main__":
     truncator = Truncator(max_length=884)
     protein_standardizer = ProteinStandardizer()
 
-    multi_input_dataset = protein_standardizer.fit_transform(multi_input_dataset, "proteins")
-    multi_input_dataset = truncator.fit_transform(multi_input_dataset, "proteins")
+    # multi_input_dataset = protein_standardizer.fit_transform(multi_input_dataset, "proteins")
+    # multi_input_dataset = truncator.fit_transform(multi_input_dataset, "proteins")
     # process_to_spawn(multi_input_dataset)
-    generate_features_for_compounds(multi_input_dataset)
+    # generate_features_for_compounds(multi_input_dataset)
+
+    multi_input_dataset = MultiInputDataset.from_csv("merged_dataset_with_representation.csv", representation_field={"ligands": "smiles", 
+                                                                                        "proteins": "sequence"},
+                                                                                        instances_ids_field={"ligands": "molecule ID", 
+                                                                                        "proteins": "Uniprot ID"})
+    multi_input_dataset = protein_standardizer.fit_transform(multi_input_dataset, "proteins")
+
+    from plants_sm.featurization.proteins.propythia.propythia import PropythiaWrapper
+    propythia_descriptors = PropythiaWrapper(preset="all-no-aac")
+    multi_input_dataset = propythia_descriptors.fit_transform(multi_input_dataset, "proteins")
+    multi_input_dataset.save_features("propythia_descriptors")
     

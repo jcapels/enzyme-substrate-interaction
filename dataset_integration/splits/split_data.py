@@ -1,7 +1,7 @@
 import pandas as pd
 
-def split_data(threshold, entity):
-    assignments = pd.read_csv(f"graphpart_assignments_{threshold}.csv")
+def split_data_cv(threshold, entity):
+    assignments = pd.read_csv(f"graphpart_assignments_{threshold}_cv_curated.csv")
     datasets = []
 
     for i in range(5):
@@ -35,7 +35,21 @@ def split_data(threshold, entity):
 
     write_pickle(f"splits_{threshold}_{entity}.pkl", datasets)
 
-split_data("0_6", "proteins")
+def split_data(threshold, entity):
+    assignments = pd.read_csv(f"graphpart_assignments_{threshold}_train_test_split_curated.csv")
+    train_dataset_ids = assignments[assignments["cluster"]==0]["AC"]
+    validation_dataset_ids = assignments[assignments["cluster"]==2]["AC"]
+    test_dataset_ids = assignments[assignments["cluster"]==1]["AC"]
+
+    datasets = [(train_dataset_ids, validation_dataset_ids, test_dataset_ids)]
+    from plants_sm.io.pickle import write_pickle
+    write_pickle(f"splits_{threshold}_{entity}_train_val_test.pkl", datasets)
+
+#split_data_cv("0_6", "proteins")
+#split_data("0_6", "proteins")
+split_data("0_2", "proteins")
 split_data("0_4", "proteins")
+split_data("0_8", "proteins")
+
 
     

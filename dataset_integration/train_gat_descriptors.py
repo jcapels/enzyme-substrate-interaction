@@ -388,6 +388,6 @@ if __name__ == "__main__":
     import os
     os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
     from plants_sm.io.pickle import read_pickle
-    splits = read_pickle("splits/splits_0_6_proteins.pkl")
+    splits = read_pickle("splits/splits_0_6_proteins_train_val_test.pkl")
     experiment_optimize(splits)
     # test_train_model()

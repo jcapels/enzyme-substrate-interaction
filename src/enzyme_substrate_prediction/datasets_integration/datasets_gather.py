@@ -43,7 +43,6 @@ class DatasetsGatherer(luigi.Task):
         import requests
         from tqdm import tqdm
 
-
         def search_pubchem(inchi_key):
             url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/inchikey/{inchi_key}/JSON"
             response = requests.get(url)
@@ -61,9 +60,9 @@ class DatasetsGatherer(luigi.Task):
             else:
                 pubchem_ids.append(None)
 
-        pubchem_ids_df = pd.DataFrame({"SMILES":smiles, "pubchem_id": pubchem_ids})
-        data_cleaned = pd.merge(data_cleaned, pubchem_ids_df, on="SMILES")
-        data_cleaned.drop(columns="pubchem_id_y", inplace=True)
-        data_cleaned = data_cleaned.rename(columns={"pubchem_id_x": "pubchem_id"})
+        # pubchem_ids_df = pd.DataFrame({"SMILES":smiles, "pubchem_id": pubchem_ids})
+        # data_cleaned = pd.merge(data_cleaned, pubchem_ids_df, on="SMILES")
+        # data_cleaned.drop(columns="pubchem_id_y", inplace=True)
+        # data_cleaned = data_cleaned.rename(columns={"pubchem_id_x": "pubchem_id"})
 
         data_cleaned.to_csv("integrated_dataset.csv", index=False)
