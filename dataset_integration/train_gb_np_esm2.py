@@ -6,10 +6,10 @@ from sklearn.metrics import matthews_corrcoef, roc_auc_score
 from hyperopt import fmin, tpe, hp, Trials, rand
 import xgboost as xgb
 
-from plants_sm.io.pickle import write_pickle
+from plants_sm.io.pickle import write_pickle, read_pickle
 
 
-def load_datasets(ids_for_datasets, random_state=42, merge_validation_set=False):
+def load_datasets(ids_for_datasets, random_state=42, merge_validation_set=False, enzymes_features="esm2_3b_ec_number_embedding", compounds_features="features_compounds_np_classifier_fp"):
     import pandas as pd
     dataset = pd.read_csv("curated_dataset.csv")
 
@@ -37,8 +37,8 @@ def load_datasets(ids_for_datasets, random_state=42, merge_validation_set=False)
                                                                 },
                                                                 labels_field="Binding")
             
-            validation_dataset.load_features("esm2_3b_ec_number_embedding", "proteins")
-            validation_dataset.load_features("features_compounds_np_classifier_fp", "ligands")
+            validation_dataset.load_features(enzymes_features, "proteins")
+            validation_dataset.load_features(compounds_features, "ligands")
 
         train_dataset = train_dataset.sample(frac=1, random_state=random_state).reset_index(drop=True)
 
@@ -48,8 +48,8 @@ def load_datasets(ids_for_datasets, random_state=42, merge_validation_set=False)
                                                                 },
                                                                 labels_field="Binding")
 
-        train_dataset.load_features("esm2_3b_ec_number_embedding", "proteins")
-        train_dataset.load_features("features_compounds_np_classifier_fp", "ligands")
+        train_dataset.load_features(enzymes_features, "proteins")
+        train_dataset.load_features(compounds_features, "ligands")
 
         test_dataset = dataset[dataset["Enzyme ID"].isin(test_ids)]
         
@@ -58,16 +58,16 @@ def load_datasets(ids_for_datasets, random_state=42, merge_validation_set=False)
                                                                                     "ligands": "Substrate ID", 
                                                                 },
                                                                 labels_field="Binding")
-        test_dataset.load_features("esm2_3b_ec_number_embedding", "proteins")
-        test_dataset.load_features("features_compounds_np_classifier_fp", "ligands")
-        
+        test_dataset.load_features(enzymes_features, "proteins")
+        test_dataset.load_features(compounds_features, "ligands")
+
         if merge_validation_set:
             datasets.append((train_dataset, test_dataset))
         else:
             datasets.append((train_dataset, validation_dataset, test_dataset))
     return datasets
 
-def load_datasets_compounds(ids_for_datasets, random_state=42, merge_validation_set=False):
+def load_datasets_compounds(ids_for_datasets, random_state=42, merge_validation_set=False, enzymes_features="esm2_3b_ec_number_embedding", compounds_features="features_compounds_np_classifier_fp"):
     import pandas as pd
     dataset = pd.read_csv("curated_dataset.csv")
 
@@ -95,8 +95,8 @@ def load_datasets_compounds(ids_for_datasets, random_state=42, merge_validation_
                                                                 },
                                                                 labels_field="Binding")
             
-            validation_dataset.load_features("esm2_3b_ec_number_embedding", "proteins")
-            validation_dataset.load_features("features_compounds_np_classifier_fp", "ligands")
+            validation_dataset.load_features(enzymes_features, "proteins")
+            validation_dataset.load_features(compounds_features, "ligands")
 
         train_dataset = train_dataset.sample(frac=1, random_state=random_state).reset_index(drop=True)
 
@@ -106,8 +106,8 @@ def load_datasets_compounds(ids_for_datasets, random_state=42, merge_validation_
                                                                 },
                                                                 labels_field="Binding")
 
-        train_dataset.load_features("esm2_3b_ec_number_embedding", "proteins")
-        train_dataset.load_features("features_compounds_np_classifier_fp", "ligands")
+        train_dataset.load_features(enzymes_features, "proteins")
+        train_dataset.load_features(compounds_features, "ligands")
 
         test_dataset = dataset[dataset["Substrate ID"].isin(test_ids)]
         
@@ -116,9 +116,9 @@ def load_datasets_compounds(ids_for_datasets, random_state=42, merge_validation_
                                                                                     "ligands": "Substrate ID", 
                                                                 },
                                                                 labels_field="Binding")
-        test_dataset.load_features("esm2_3b_ec_number_embedding", "proteins")
-        test_dataset.load_features("features_compounds_np_classifier_fp", "ligands")
-        
+        test_dataset.load_features(enzymes_features, "proteins")
+        test_dataset.load_features(compounds_features, "ligands")
+
         if merge_validation_set:
             datasets.append((train_dataset, test_dataset))
         else:
@@ -146,7 +146,7 @@ def set_param_values_V2(param, dtrain):
     param["max_bin"] = int(max_bin[param["max_bin"]])
     # param["tree_method"] = "gpu_hist"
     param["sampling_method"] = "gradient_based"
-    param["device"] = "cuda:2"
+    param["device"] = "cuda:3"
 
     param['objective'] = 'binary:logistic'
     weights = np.array([param["weight"] if y == 0 else 1.0 for y in dtrain.get_label()])
@@ -216,13 +216,13 @@ def fit_xgboost(param, dtrain, num_round):
             print(f"Succeeded with {batches} batches.")
             return bst
 
-def train_gb(train_dataset, validation_dataset, test_dataset, save_pred_path, model_name, max_evals=500):
+def train_gb(train_dataset, validation_dataset, test_dataset, save_pred_path, model_name, similarity, max_evals=500):
 
     def set_param_values(param):
         num_round = int(param["num_rounds"])
         param["tree_method"] = "hist"
         param["sampling_method"] = "gradient_based"
-        param["device"] = "cuda:2"
+        param["device"] = "cuda:3"
 
         param['objective'] = 'binary:logistic'
         weights = np.array([param["weight"] if y == 0 else 1.0 for y in dtrain.get_label()])
@@ -266,7 +266,7 @@ def train_gb(train_dataset, validation_dataset, test_dataset, save_pred_path, mo
 
     trials = Trials()
     best = fmin(fn = train_xgboost_model_all, space = space_gradient_boosting,
-                algo = rand.suggest, max_evals = max_evals, trials = trials)
+                algo = tpe.suggest, max_evals = max_evals, trials = trials)
     best_copy = best.copy()
 
     y_val_pred_all = get_predictions(param = best_copy, dM_train = dtrain, dM_val = dvalid)
@@ -278,11 +278,11 @@ def train_gb(train_dataset, validation_dataset, test_dataset, save_pred_path, mo
 
     os.makedirs(save_pred_path, exist_ok=True)
 
-    write_pickle(os.path.join(save_pred_path, f"{model_name}_best.pkl"), best)
+    write_pickle(os.path.join(save_pred_path, f"{model_name}_{similarity}_best.pkl"), best)
 
     return best
 
-def evaluate_model(model_name, save_pred_path, train_dataset, validation_dataset, test_dataset):
+def evaluate_model(model_name, save_pred_path, train_dataset, validation_dataset, test_dataset, similarity, proteins=True):
     from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score, matthews_corrcoef, r2_score, mean_squared_error, accuracy_score
 
 
@@ -321,6 +321,11 @@ def evaluate_model(model_name, save_pred_path, train_dataset, validation_dataset
         roc_auc = roc_auc_score(test_dataset.y, predictions_proba)
         mcc = matthews_corrcoef(test_dataset.y, predictions)
 
+        if proteins:
+            similarity_name = "identity"
+        else:
+            similarity_name = "similarity"
+
         results = {
             'accuracy': accuracy,
             'f1_score': f1,
@@ -328,7 +333,8 @@ def evaluate_model(model_name, save_pred_path, train_dataset, validation_dataset
             'precision': precision,
             'roc_auc': roc_auc,
             'mcc': mcc,
-            'seed':seed
+            'seed':seed,
+            similarity_name: similarity,
         }
         df = pd.DataFrame([results])
         if os.path.exists(os.path.join(save_pred_path, f"results_{model_name}.csv")):
@@ -340,49 +346,68 @@ def evaluate_model(model_name, save_pred_path, train_dataset, validation_dataset
 
 
 
-def experiment_optimize(splits, name, proteins_split):
+def experiment_optimize(splits, name, proteins_split, similarity, enzymes_features="esm2_3b_ec_number_embedding", compounds_features="features_compounds_np_classifier_fp", model_name="xgb_np_esm2"):
     if proteins_split:
-        datasets = load_datasets(splits)
+        datasets = load_datasets(splits, enzymes_features=enzymes_features, compounds_features=compounds_features)
     else:
-        datasets = load_datasets_compounds(splits)
+        datasets = load_datasets_compounds(splits, enzymes_features=enzymes_features, compounds_features=compounds_features)
     
     train_dataset, validation_dataset, test_dataset = datasets[0]
-    train_gb(train_dataset, validation_dataset, test_dataset, "xgb_np_esm2", model_name=name, max_evals=200)
-    evaluate_model(name, "xgb_np_esm2", train_dataset, validation_dataset, test_dataset)
+    train_gb(train_dataset, validation_dataset, test_dataset, model_name, model_name=name, similarity=similarity,
+             max_evals=200)
+    evaluate_model(name, model_name, train_dataset, validation_dataset, test_dataset, similarity=similarity, proteins=proteins_split)
 
+def experiment_features(model_name, enzymes_features="esm2_3b_ec_number_embedding", compounds_features="features_compounds_np_classifier_fp"):
+    splits = read_pickle("compounds_split/splits_compounds_08.pkl")
+
+    experiment_optimize(splits, model_name=model_name, name="binding_np_classifier_compounds", 
+                        proteins_split=False, enzymes_features=enzymes_features, compounds_features=compounds_features, similarity=80)
+
+    splits = read_pickle("compounds_split/splits_compounds_06.pkl")
+
+    experiment_optimize(splits, model_name=model_name, name="binding_np_classifier_compounds", 
+                        proteins_split=False, enzymes_features=enzymes_features, compounds_features=compounds_features, similarity=60)
+
+    splits = read_pickle("compounds_split/splits_compounds_04.pkl")
+
+    experiment_optimize(splits, model_name=model_name, name="binding_np_classifier_compounds", 
+                        proteins_split=False, enzymes_features=enzymes_features, compounds_features=compounds_features, similarity=40)
+
+    splits = read_pickle("compounds_split/splits_compounds_02.pkl")
+
+    experiment_optimize(splits, model_name=model_name, name="binding_np_classifier_compounds", 
+                        proteins_split=False, enzymes_features=enzymes_features, compounds_features=compounds_features, similarity=20)
+
+    splits = read_pickle("splits/splits_0_6_proteins_train_val_test.pkl")
+
+    experiment_optimize(splits, model_name=model_name, name="binding_np_classifier_proteins", 
+                        proteins_split=True, enzymes_features=enzymes_features, compounds_features=compounds_features, similarity=60)
+
+    splits = read_pickle("splits/splits_0_8_proteins_train_val_test.pkl")
+
+    experiment_optimize(splits, model_name=model_name, name="binding_np_classifier_proteins", 
+                        proteins_split=True, enzymes_features=enzymes_features, compounds_features=compounds_features, similarity=80)
+
+    splits = read_pickle("splits/splits_0_4_proteins_train_val_test.pkl")
+
+    experiment_optimize(splits, model_name=model_name, name="binding_np_classifier_proteins", 
+                        proteins_split=True, enzymes_features=enzymes_features, compounds_features=compounds_features, similarity=40)
+
+def experiment_np_esm2(enzymes_features="esm2_3b_ec_number_embedding", compounds_features="features_compounds_np_classifier_fp"):
+    experiment_features(enzymes_features=enzymes_features, compounds_features=compounds_features, model_name="xgb_np_esm2")
+
+def experiment_prot_bert_np(enzymes_features="prot_bert_ec_number_embedding", compounds_features="features_compounds_np_classifier_fp"):
+    experiment_features(enzymes_features=enzymes_features, compounds_features=compounds_features, model_name="xgb_np_prot_bert")
+
+def experiment_esm1b(enzymes_features="esm1b_ec_number_embedding", compounds_features="features_compounds_np_classifier_fp"):
+    experiment_features(enzymes_features=enzymes_features, compounds_features=compounds_features, model_name="xgb_np_esm1b")
 
 if __name__ == "__main__":
     import os
     os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
-    from plants_sm.io.pickle import read_pickle
+    experiment_esm1b()
 
-    splits = read_pickle("compounds_split/splits_compounds_08.pkl")
-
-    experiment_optimize(splits, name="binding_np_classifier_compounds_08", proteins_split=False)
-
-    splits = read_pickle("compounds_split/splits_compounds_06.pkl")
-
-    experiment_optimize(splits, name="binding_np_classifier_compounds_06", proteins_split=False)
-
-    splits = read_pickle("compounds_split/splits_compounds_04.pkl")
-
-    experiment_optimize(splits, name="binding_np_classifier_compounds_04", proteins_split=False)
-
-    splits = read_pickle("compounds_split/splits_compounds_02.pkl")
-
-    experiment_optimize(splits, name="binding_np_classifier_compounds_02", proteins_split=False)
-
-    splits = read_pickle("splits/splits_0_6_proteins_train_val_test.pkl")
-
-    experiment_optimize(splits, name="binding_np_classifier_06_proteins_3", proteins_split=True)
-
-    splits = read_pickle("splits/splits_0_8_proteins_train_val_test.pkl")
-
-    experiment_optimize(splits, name="binding_np_classifier_08_proteins_3", proteins_split=True)
-
-    splits = read_pickle("splits/splits_0_4_proteins_train_val_test.pkl")
-
-    experiment_optimize(splits, name="binding_np_classifier_04_proteins_3", proteins_split=True)
+    
 
 
 
