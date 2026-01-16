@@ -33,7 +33,7 @@ def get_model(module, batch_size,epochs, train_dataset, validation_dataset):
 
         model = InternalLightningModel(module=module, max_epochs=epochs,
                     batch_size=batch_size,
-                    devices=[1],
+                    devices=[0],
                     accelerator="gpu",
                     callbacks=callbacks
                     )
@@ -50,7 +50,7 @@ def get_model(module, batch_size,epochs, train_dataset, validation_dataset):
     else:
         model = InternalLightningModel(module=module, max_epochs=epochs,
                     batch_size=batch_size,
-                    devices=[1],
+                    devices=[0],
                     accelerator="gpu",
                     )
         model.reset_weights()
@@ -233,7 +233,7 @@ class BindingExperiment(Experiment):
     
 def load_datasets(ids_for_datasets, random_state=42, merge_validation_set=False):
     import pandas as pd
-    dataset = pd.read_csv("curated_dataset.csv")
+    dataset = pd.read_csv("curated_dataset_no_stereochemistry_duplicates.csv")
 
     datasets = []
 
@@ -291,7 +291,7 @@ def load_datasets(ids_for_datasets, random_state=42, merge_validation_set=False)
 
 def load_datasets_compounds(ids_for_datasets, random_state=42, merge_validation_set=False):
     import pandas as pd
-    dataset = pd.read_csv("curated_dataset.csv")
+    dataset = pd.read_csv("curated_dataset_no_stereochemistry_duplicates.csv")
 
     datasets = []
 
@@ -395,9 +395,9 @@ def test_train_model(ids_for_datasets, protein_head_layers, compound_head_layers
     
 def experiment_optimize(ids_for_datasets, name="binding_np_classifier", proteins_split=True):
     
-    experiment = BindingExperiment(ids_for_datasets=ids_for_datasets, study_name=name, storage="sqlite:///binding_np_classifier.db", sampler= optuna.samplers.TPESampler(seed=123),
+    experiment = BindingExperiment(ids_for_datasets=ids_for_datasets, study_name=name, storage="sqlite:///binding_np_classifier_no_stereo.db", sampler= optuna.samplers.TPESampler(seed=123),
                                     direction="maximize", load_if_exists=True, results_output_file=f"{name}.csv",
-                                        folder_path="kroll_experiment_models", proteins_split=proteins_split)
+                                        folder_path="kroll_experiment_models_no_stereo", proteins_split=proteins_split)
     experiment.run(n_trials=50, n_jobs=1)
 
     test_train_model(ids_for_datasets, experiment.best_hyperparameters["protein_head_layers"], experiment.best_hyperparameters["compound_head_layers"],
@@ -415,29 +415,29 @@ if __name__ == "__main__":
 
     splits = read_pickle("compounds_split/splits_compounds_08.pkl")
 
-    experiment_optimize(splits, name="binding_np_classifier_compounds_08", proteins_split=False)
+    experiment_optimize(splits, name="binding_np_classifier_compounds_08_no_stereo", proteins_split=False)
 
     splits = read_pickle("compounds_split/splits_compounds_06.pkl")
 
-    experiment_optimize(splits, name="binding_np_classifier_compounds_06", proteins_split=False)
+    experiment_optimize(splits, name="binding_np_classifier_compounds_06_no_stereo", proteins_split=False)
 
     splits = read_pickle("compounds_split/splits_compounds_04.pkl")
 
-    experiment_optimize(splits, name="binding_np_classifier_compounds_04", proteins_split=False)
+    experiment_optimize(splits, name="binding_np_classifier_compounds_04_no_stereo", proteins_split=False)
 
     splits = read_pickle("compounds_split/splits_compounds_02.pkl")
 
-    experiment_optimize(splits, name="binding_np_classifier_compounds_02", proteins_split=False)
+    experiment_optimize(splits, name="binding_np_classifier_compounds_02_no_stereo", proteins_split=False)
 
     splits = read_pickle("splits/splits_0_6_proteins_train_val_test.pkl")
 
-    experiment_optimize(splits, name="binding_np_classifier_06_proteins_3", proteins_split=True)
+    experiment_optimize(splits, name="binding_np_classifier_06_proteins_no_stereo", proteins_split=True)
 
     splits = read_pickle("splits/splits_0_8_proteins_train_val_test.pkl")
 
-    experiment_optimize(splits, name="binding_np_classifier_08_proteins_3", proteins_split=True)
+    experiment_optimize(splits, name="binding_np_classifier_08_proteins_no_stereo", proteins_split=True)
 
     splits = read_pickle("splits/splits_0_4_proteins_train_val_test.pkl")
 
-    experiment_optimize(splits, name="binding_np_classifier_04_proteins_3", proteins_split=True)
+    experiment_optimize(splits, name="binding_np_classifier_04_proteins_no_stereo", proteins_split=True)
 
