@@ -1,0 +1,7 @@
+# control number of cores
+# control number of threads
+
+needleall -auto -stdout -aformat pair -nt 50 -gapopen 10 -gapextend 0.5 -endopen 10 -endextend 0.5 -datafile EBLOSUM62 -sprotein1 -sprotein2 datasets_fasta/curated_dataset_valid_test_0_8.fasta augmented_dataset.fasta -outfile datasets_fasta/curated_dataset_valid_test_0_8_augmented_dataset.needle 
+needleall -auto -stdout -aformat pair -nt 50 -gapopen 10 -gapextend 0.5 -endopen 10 -endextend 0.5 -datafile EBLOSUM62 -sprotein1 -sprotein2 datasets_fasta/curated_dataset_valid_test_0_6.fasta augmented_dataset.fasta -outfile datasets_fasta/curated_dataset_valid_test_0_6_augmented_dataset.needle
+needleall -auto -stdout -aformat pair -nt 50 -gapopen 10 -gapextend 0.5 -endopen 10 -endextend 0.5 -datafile EBLOSUM62 -sprotein1 -sprotein2 datasets_fasta/curated_dataset_valid_test_0_4.fasta augmented_dataset.fasta -outfile datasets_fasta/curated_dataset_valid_test_0_4_augmented_dataset.needle
+needleall -auto -stdout -aformat pair -nt 50 -gapopen 10 -gapextend 0.5 -endopen 10 -endextend 0.5 -datafile EBLOSUM62 -sprotein1 -sprotein2 datasets_fasta/curated_dataset_valid_test_0_2.fasta augmented_dataset.fasta -outfile datasets_fasta/curated_dataset_valid_test_0_2_augmented_dataset.needle

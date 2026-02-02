@@ -33,7 +33,7 @@ def get_model(module, batch_size,epochs, train_dataset, validation_dataset):
 
         model = InternalLightningModel(module=module, max_epochs=epochs,
                     batch_size=batch_size,
-                    devices=[0],
+                    devices=[1],
                     accelerator="gpu",
                     callbacks=callbacks
                     )
@@ -50,7 +50,7 @@ def get_model(module, batch_size,epochs, train_dataset, validation_dataset):
     else:
         model = InternalLightningModel(module=module, max_epochs=epochs,
                     batch_size=batch_size,
-                    devices=[0],
+                    devices=[1],
                     accelerator="gpu",
                     )
         model.reset_weights()
@@ -227,7 +227,6 @@ class BindingExperiment(Experiment):
                 "epochs": epochs
             }
             self.best_epoch = best_epoch
-        
 
         return np.mean(mcc_validation)
     
@@ -348,8 +347,9 @@ def load_datasets_compounds(ids_for_datasets, random_state=42, merge_validation_
     return datasets
 
 def test_train_model(ids_for_datasets, protein_head_layers, compound_head_layers, final_head_layers, 
-                     batch_norm, dropout, batch_size, learning_rate, epochs, proteins_split=True, 
-                     output_file = "results_np_classifier.csv"):
+                     batch_norm, dropout, batch_size, learning_rate, epochs, similarity, proteins_split=True, 
+                     save_pred_path="neural_net_esm2", model_name="neural_net_esm2", suffix_results="proteins"
+                     ):
 
     file_exists = False
 
@@ -377,6 +377,11 @@ def test_train_model(ids_for_datasets, protein_head_layers, compound_head_layers
             predictions = model.predict(test_dataset)
             y_true = test_dataset.y
 
+            if proteins_split:
+                similarity_name = "identity"
+            else:
+                similarity_name = "similarity"
+
             result = {
                 'seed': i,
                 'fold': fold_idx,
@@ -386,58 +391,123 @@ def test_train_model(ids_for_datasets, protein_head_layers, compound_head_layers
                 'accuracy': accuracy_score(y_true, predictions),
                 'mcc': matthews_corrcoef(y_true, predictions),
                 'recall': recall_score(y_true, predictions),
+                similarity_name: similarity,
             }
-            fold_idx+=1
+
+            if os.path.exists(os.path.join(save_pred_path, f"results_{model_name}_{suffix_results}.csv")):
+                file_exists=True
+            else:
+                file_exists=False
 
             df = pd.DataFrame([result])
-            df.to_csv(output_file, mode='a', index=False, header=not file_exists)
-            file_exists = True  # Ensure header is not written again
+            df.to_csv(os.path.join(save_pred_path, f"results_{model_name}_{suffix_results}.csv"), mode='a', index=False, header=not file_exists)
+
+            fold_idx+=1
+
     
-def experiment_optimize(ids_for_datasets, name="binding_np_classifier", proteins_split=True):
+def experiment_optimize(ids_for_datasets, name="binding_np_classifier", proteins_split=True, similarity=60, save_pred_path="neural_net_esm2", model_name="neural_net_esm2", suffix_results="proteins"):
+
+    os.makedirs(save_pred_path, exist_ok=True)
     
     experiment = BindingExperiment(ids_for_datasets=ids_for_datasets, study_name=name, storage="sqlite:///binding_np_classifier_no_stereo.db", sampler= optuna.samplers.TPESampler(seed=123),
                                     direction="maximize", load_if_exists=True, results_output_file=f"{name}.csv",
-                                        folder_path="kroll_experiment_models_no_stereo", proteins_split=proteins_split)
-    experiment.run(n_trials=50, n_jobs=1)
+                                        folder_path="models_no_stereo", proteins_split=proteins_split)
+    experiment.run(n_trials=200, n_jobs=1)
+
+    from plants_sm.io.pickle import read_pickle, write_pickle
+
+    write_pickle(experiment.best_hyperparameters, os.path.join(save_pred_path, f"best_hyperparameters_{name}_no_stereo.pkl"))
 
     test_train_model(ids_for_datasets, experiment.best_hyperparameters["protein_head_layers"], experiment.best_hyperparameters["compound_head_layers"],
                     experiment.best_hyperparameters["final_head_layers"], experiment.best_hyperparameters["batch_norm"], 
                     experiment.best_hyperparameters["dropout"], experiment.best_hyperparameters["batch_size"], 
                     experiment.best_hyperparameters["learning_rate"], experiment.best_epoch+1, proteins_split=proteins_split,
-                    output_file=f"results_{name}.csv")
+                    output_file=f"results_{name}.csv", similarity=similarity, save_pred_path=save_pred_path, model_name=model_name, suffix_results=suffix_results)
         
     
 
 if __name__ == "__main__":
     import os
     os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
-    from plants_sm.io.pickle import read_pickle
+    from plants_sm.io.pickle import read_pickle, write_pickle
 
     splits = read_pickle("compounds_split/splits_compounds_08.pkl")
 
-    experiment_optimize(splits, name="binding_np_classifier_compounds_08_no_stereo", proteins_split=False)
+    experiment_optimize(splits, name="binding_np_classifier_compounds_08_no_stereo", proteins_split=False, 
+                        similarity=80, save_pred_path="neural_net_esm2", model_name="neural_net_esm2", suffix_results="compounds")
 
     splits = read_pickle("compounds_split/splits_compounds_06.pkl")
 
-    experiment_optimize(splits, name="binding_np_classifier_compounds_06_no_stereo", proteins_split=False)
+    experiment_optimize(splits, name="binding_np_classifier_compounds_06_no_stereo", proteins_split=False, 
+                        similarity=60, save_pred_path="neural_net_esm2", model_name="neural_net_esm2", suffix_results="compounds")
 
     splits = read_pickle("compounds_split/splits_compounds_04.pkl")
 
-    experiment_optimize(splits, name="binding_np_classifier_compounds_04_no_stereo", proteins_split=False)
-
+    experiment_optimize(splits, name="binding_np_classifier_compounds_04_no_stereo", proteins_split=False, 
+                        similarity=40, save_pred_path="neural_net_esm2", model_name="neural_net_esm2", suffix_results="compounds")
     splits = read_pickle("compounds_split/splits_compounds_02.pkl")
 
-    experiment_optimize(splits, name="binding_np_classifier_compounds_02_no_stereo", proteins_split=False)
+    experiment_optimize(splits, name="binding_np_classifier_compounds_02_no_stereo", proteins_split=False, 
+                        similarity=20, save_pred_path="neural_net_esm2", model_name="neural_net_esm2", suffix_results="compounds")
 
     splits = read_pickle("splits/splits_0_6_proteins_train_val_test.pkl")
 
-    experiment_optimize(splits, name="binding_np_classifier_06_proteins_no_stereo", proteins_split=True)
+    experiment_optimize(splits, name="binding_np_classifier_06_proteins_no_stereo", proteins_split=True, 
+                        similarity=60, save_pred_path="neural_net_esm2", model_name="neural_net_esm2", suffix_results="proteins")
 
     splits = read_pickle("splits/splits_0_8_proteins_train_val_test.pkl")
 
-    experiment_optimize(splits, name="binding_np_classifier_08_proteins_no_stereo", proteins_split=True)
-
+    experiment_optimize(splits, name="binding_np_classifier_08_proteins_no_stereo", proteins_split=True, 
+                        similarity=80, save_pred_path="neural_net_esm2", model_name="neural_net_esm2", suffix_results="proteins")
     splits = read_pickle("splits/splits_0_4_proteins_train_val_test.pkl")
 
-    experiment_optimize(splits, name="binding_np_classifier_04_proteins_no_stereo", proteins_split=True)
+    experiment_optimize(splits, name="binding_np_classifier_04_proteins_no_stereo", proteins_split=True, 
+                        similarity=40, save_pred_path="neural_net_esm2", model_name="neural_net_esm2", suffix_results="proteins")
+
+# def train_protbert_and_evaluate_for_classes():
+    
+#     train_model_and_evaluate_for_classes(general_split="compounds_split/splits_compounds_02.pkl", 
+#                         split_path="splits/pathway_to_compounds_split_02.pkl", 
+#                         save_pred_path="xgb_np_prot_bert", model_name="binding_np_classifier_compounds", similarity=20)
+
+#     train_model_and_evaluate_for_classes(general_split="compounds_split/splits_compounds_04.pkl", 
+#                         split_path="splits/pathway_to_compounds_split_04.pkl", 
+#                         save_pred_path="xgb_np_prot_bert", model_name="binding_np_classifier_compounds", similarity=40)
+#     train_model_and_evaluate_for_classes(general_split="compounds_split/splits_compounds_06.pkl", 
+#                         split_path="splits/pathway_to_compounds_split_06.pkl", 
+#                         save_pred_path="xgb_np_prot_bert", model_name="binding_np_classifier_compounds", similarity=60)
+#     train_model_and_evaluate_for_classes(general_split="compounds_split/splits_compounds_08.pkl", 
+#                         split_path="splits/pathway_to_compounds_split_08.pkl", 
+#                         save_pred_path="xgb_np_prot_bert", model_name="binding_np_classifier_compounds", similarity=80)
+
+
+# def train_esm1b_and_evaluate_for_classes():
+#     train_model_and_evaluate_for_classes(general_split="compounds_split/splits_compounds_02.pkl", 
+#                         split_path="splits/pathway_to_compounds_split_02.pkl", 
+#                         save_pred_path="xgb_np_esm1b", model_name="binding_np_classifier_compounds", similarity=20)
+
+#     train_model_and_evaluate_for_classes(general_split="compounds_split/splits_compounds_04.pkl", 
+#                         split_path="splits/pathway_to_compounds_split_04.pkl", 
+#                         save_pred_path="xgb_np_esm1b", model_name="binding_np_classifier_compounds", similarity=40)
+#     train_model_and_evaluate_for_classes(general_split="compounds_split/splits_compounds_06.pkl", 
+#                         split_path="splits/pathway_to_compounds_split_06.pkl", 
+#                         save_pred_path="xgb_np_esm1b", model_name="binding_np_classifier_compounds", similarity=60)
+#     train_model_and_evaluate_for_classes(general_split="compounds_split/splits_compounds_08.pkl", 
+#                         split_path="splits/pathway_to_compounds_split_08.pkl", 
+#                         save_pred_path="xgb_np_esm1b", model_name="binding_np_classifier_compounds", similarity=80)
+
+# def train_esm2_3b_and_evaluate_for_classes():
+#     train_model_and_evaluate_for_classes(general_split="compounds_split/splits_compounds_02.pkl", 
+#                         split_path="splits/pathway_to_compounds_split_02.pkl", 
+#                         save_pred_path="xgb_np_esm2", model_name="binding_np_classifier_compounds", similarity=20)
+
+#     train_model_and_evaluate_for_classes(general_split="compounds_split/splits_compounds_04.pkl", 
+#                         split_path="splits/pathway_to_compounds_split_04.pkl", 
+#                         save_pred_path="xgb_np_esm2", model_name="binding_np_classifier_compounds", similarity=40)
+#     train_model_and_evaluate_for_classes(general_split="compounds_split/splits_compounds_06.pkl", 
+#                         split_path="splits/pathway_to_compounds_split_06.pkl", 
+#                         save_pred_path="xgb_np_esm2", model_name="binding_np_classifier_compounds", similarity=60)
+#     train_model_and_evaluate_for_classes(general_split="compounds_split/splits_compounds_08.pkl", 
+#                         split_path="splits/pathway_to_compounds_split_08.pkl", 
+#                         save_pred_path="xgb_np_esm2", model_name="binding_np_classifier_compounds", similarity=80)
 
