@@ -29,82 +29,54 @@ INVERSE_TRANSFORMATIONS = {
     None: lambda x: x
 }
 
-def compute_edges(split, threshold, dataset, chunk):
-    '''
-    Run needleall on query_fp and library_fp,
-    Retrieve pairwise similiarities, transform and
-    insert into edge_dict.
-    '''
-    command = ["needleall", '-auto', '-stdout', '-aformat', 'pair', '-gapopen', '10', 
-               '-gapextend', '0.5', '-endopen', '10', '-endextend', '0.5', '-datafile', 'EBLOSUM62', '-sprotein1', 
-               '-sprotein2', f"datasets_fasta/curated_dataset_valid_test_{split}.fasta", dataset
-               ]
+def compute_edges(comparison_name, query_fasta, target_fasta, chunk):
+    """
+    Run needleall between query_fasta and target_fasta.
+    Store pairwise protein identities above threshold.
+    """
 
-    count = 0
+    command = [
+        "needleall", "-auto", "-stdout", "-aformat", "pair",
+        "-gapopen", "10", "-gapextend", "0.5",
+        "-endopen", "10", "-endextend", "0.5",
+        "-datafile", "EBLOSUM62",
+        "-sprotein1", query_fasta,
+        "-sprotein2", target_fasta
+    ]
+
     import subprocess
-    homologous_list = []
 
-    previous = ""
-    stop = False
+    results = []
+    count = 0
+
     with subprocess.Popen(
-            command,
-            stdout=subprocess.PIPE,
-            bufsize=1,
-            universal_newlines=True) as proc:
-        for line_nr, line in enumerate(proc.stdout):  
-            if  line.startswith('# 1:'):
+        command,
+        stdout=subprocess.PIPE,
+        bufsize=1,
+        universal_newlines=True
+    ) as proc:
 
-                # # 1: P0CV73
-                this_qry = line[5:].split()[0].split('|')[0]
+        for line in proc.stdout:
+
+            if line.startswith('# 1:'):
+                protein_1 = line[5:].split()[0].split('|')[0]
 
             elif line.startswith('# 2:'):
-                this_lib = line[5:].split()[0].split('|')[0]
+                protein_2 = line[5:].split()[0].split('|')[0]
 
-                if previous != this_lib:
-                    previous = this_lib
-                    stop=False
+            elif line.startswith('# Identity:'):
+                identity_line = line
+                identity = float(identity_line.split('(')[1][:-3]) / 100
 
-            if stop:
-                # if we have already found a homologous sequence, skip the rest
-                continue
-            else:
-                # if we have not found a homologous sequence, continue
-                stop = False
+                results.append((protein_1, protein_2, identity))
+                count += 1
 
-                if line.startswith('# Identity:'):
-                    identity_line = line
+    # Save results
+    df = pd.DataFrame(results, columns=["protein_1", "protein_2", "identity"])
 
-                #TODO gaps is only reported after the identity...
-                elif line.startswith('# Gaps:'):
-                    count +=1
+    output_file = f"datasets_fasta/{comparison_name}_chunk_{chunk}.csv"
+    df.to_csv(output_file, index=False)
 
-
-                    # Gaps:           0/142 ( 0.0%)
-                    gaps, rest = line[7:].split('/')
-                    gaps = int(gaps)
-
-                    
-                    # Compute different sequence identities as needed.
-
-                    identity = float(identity_line.split('(')[1][:-3])/100
-                    
-                    try:
-                        metric = TRANSFORMATIONS['one-minus'](identity)
-
-                    except ValueError or TypeError:
-                        raise TypeError("Failed to interpret the identity value %r. Please ensure that the ggsearch36 output is correctly formatted." % (identity))
-                    
-                    if metric > threshold:
-                        if this_lib not in homologous_list:
-                            homologous_list.append(this_lib)
-                            stop = True
-                        
-                            # write the updated list to text file
-                            with open(f"datasets_fasta/augmented_dataset_{split}_{chunk}.txt", "a") as f:
-                                f.write(f"{this_lib}\n")
-
-                    
-                    # store in a pandas dataframe
     return count
 
 def chunk_fasta_file(ids: List[str], seqs: List[str], n_chunks: int) -> int:
@@ -154,51 +126,59 @@ def parse_fasta(fastafile: str, sep='|') -> Tuple[List[str],List[str]]:
         
     return ids, seqs
 
-def generate_edges_mp(n_procs, entity_fp, split, threshold, n_chunks):
+def generate_edges_mp(n_procs, query_fasta, target_fasta, comparison_name,
+                      n_chunks):
 
-    ids, seqs = parse_fasta(entity_fp)
-    
-    n_chunks = chunk_fasta_file(ids, seqs, n_chunks) #get the actual number of generated chunks.
+    ids, seqs = parse_fasta(query_fasta)
+    n_chunks = chunk_fasta_file(ids, seqs, n_chunks)
 
-    # start n_procs threads, each thread starts a subprocess
-    # Because of threading's GIL we can write edges directly to the full_graph object.
-    jobs = []
-
-    # this is approximate, but good enough for progress bar drawing.
-    n_alignments = len(ids)*len(ids)
-
-    # define in which interval each thread updates the progress bar.
-    # if all update all the time, this would slow down the loop and make runtimes estimate unstable.
-    # update every 1000 OR update every 0.05% of the total, divided by number of procs. 
-    # this worked well on large datasets with 64 threads - fewer threads should then be unproblematic.
-    pbar_update_interval = int((n_alignments * 0.0005)/n_procs) 
-    pbar_update_interval = min(1000, pbar_update_interval)
-
-    #pbar = tqdm(total= n_alignments)
     import concurrent.futures
+    from tqdm import tqdm
 
-    executor_cls = concurrent.futures.ProcessPoolExecutor
+    jobs = []
+    n_alignments = len(ids)
 
-    with executor_cls(max_workers=n_procs) as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=n_procs) as executor:
         for i in range(n_chunks):
-            q = f'graphpart_{i}.fasta.tmp'
-            future = executor.submit(compute_edges, split, threshold, q, i)
+            chunk_file = f'graphpart_{i}.fasta.tmp'
+            future = executor.submit(
+                compute_edges,
+                comparison_name,
+                chunk_file,
+                target_fasta,
+                i
+            )
             jobs.append(future)
 
-
-
         pbar = tqdm(total=n_alignments)
+
         for job in jobs:
-            if job.exception() is not None:
-                print(job.exception())
-                # TODO we don't yet know how to recover correctly. It just should not happen in general.
-                raise RuntimeError('One of the alignment processes did not complete sucessfully.')
-            else:
-                count = job.result()
-            
-                pbar.update(count)
-                
-generate_edges_mp(20, "datasets_fasta/augmented_dataset.fasta", "0_8", 0.8, 20)
-# compute_edges("0_6", 0.6)
-# compute_edges("0_4", 0.4)
-# compute_edges("0_2", 0.2)
+            count = job.result()
+            pbar.update(count)
+
+
+for identity in [20]:       
+    generate_edges_mp(
+        identity,
+        f"datasets_fasta/train_{identity}.fasta",
+        f"datasets_fasta/test_{identity}.fasta",
+        f"train_vs_test_{identity}",
+        identity
+    )
+
+    generate_edges_mp(
+        identity,
+        f"datasets_fasta/train_{identity}.fasta",
+        f"datasets_fasta/validation_{identity}.fasta",
+        f"train_vs_val_{identity}",
+        identity
+    )
+
+    generate_edges_mp(
+        identity,
+        f"datasets_fasta/validation_{identity}.fasta",
+        f"datasets_fasta/test_{identity}.fasta",
+        f"val_vs_test_{identity}",
+        identity
+    )
+

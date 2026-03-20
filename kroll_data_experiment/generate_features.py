@@ -15,6 +15,14 @@ def generate_features_for_compounds(multi_input_dataset):
     featurizer.fit_transform(multi_input_dataset, "ligands")
     multi_input_dataset.save_features("features_compounds_np_classifier_fp")
 
+def process_probert(multi_input_dataset):
+    from plants_sm.featurization.proteins.bio_embeddings.prot_bert import ProtBert
+    transformer = ProtBert(batch_size=1, device="cuda:2")
+
+    multi_input_dataset = transformer.fit_transform(multi_input_dataset, "proteins")
+
+    multi_input_dataset.save_features("features_proteins_probert")
+
 if __name__ == "__main__":
     from plants_sm.data_structures.dataset.multi_input_dataset import MultiInputDataset
     # load datasets
@@ -31,19 +39,20 @@ if __name__ == "__main__":
     truncator = Truncator(max_length=884)
     protein_standardizer = ProteinStandardizer()
 
-    # multi_input_dataset = protein_standardizer.fit_transform(multi_input_dataset, "proteins")
-    # multi_input_dataset = truncator.fit_transform(multi_input_dataset, "proteins")
+    multi_input_dataset = protein_standardizer.fit_transform(multi_input_dataset, "proteins")
+    multi_input_dataset = truncator.fit_transform(multi_input_dataset, "proteins")
+    process_probert(multi_input_dataset)
     # process_to_spawn(multi_input_dataset)
     # generate_features_for_compounds(multi_input_dataset)
 
-    multi_input_dataset = MultiInputDataset.from_csv("merged_dataset_with_representation.csv", representation_field={"ligands": "smiles", 
-                                                                                        "proteins": "sequence"},
-                                                                                        instances_ids_field={"ligands": "molecule ID", 
-                                                                                        "proteins": "Uniprot ID"})
-    multi_input_dataset = protein_standardizer.fit_transform(multi_input_dataset, "proteins")
+    # multi_input_dataset = MultiInputDataset.from_csv("merged_dataset_with_representation.csv", representation_field={"ligands": "smiles", 
+    #                                                                                     "proteins": "sequence"},
+    #                                                                                     instances_ids_field={"ligands": "molecule ID", 
+    #                                                                                     "proteins": "Uniprot ID"})
+    # multi_input_dataset = protein_standardizer.fit_transform(multi_input_dataset, "proteins")
 
-    from plants_sm.featurization.proteins.propythia.propythia import PropythiaWrapper
-    propythia_descriptors = PropythiaWrapper(preset="all-no-aac")
-    multi_input_dataset = propythia_descriptors.fit_transform(multi_input_dataset, "proteins")
-    multi_input_dataset.save_features("propythia_descriptors")
+    # from plants_sm.featurization.proteins.propythia.propythia import PropythiaWrapper
+    # propythia_descriptors = PropythiaWrapper(preset="all-no-aac")
+    # multi_input_dataset = propythia_descriptors.fit_transform(multi_input_dataset, "proteins")
+    # multi_input_dataset.save_features("propythia_descriptors")
     

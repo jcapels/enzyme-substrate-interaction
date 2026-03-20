@@ -1,4 +1,5 @@
 
+from copy import deepcopy
 import numpy as np
 from plants_sm.hyperparameter_optimization.experiment import Experiment
 
@@ -403,7 +404,6 @@ def test_train_model(ids_for_datasets, protein_head_layers, compound_head_layers
             df.to_csv(os.path.join(save_pred_path, f"results_{model_name}_{suffix_results}.csv"), mode='a', index=False, header=not file_exists)
 
             fold_idx+=1
-
     
 def experiment_optimize(ids_for_datasets, name="binding_np_classifier", proteins_split=True, similarity=60, save_pred_path="neural_net_esm2", model_name="neural_net_esm2", suffix_results="proteins"):
 
@@ -423,7 +423,8 @@ def experiment_optimize(ids_for_datasets, name="binding_np_classifier", proteins
                     experiment.best_hyperparameters["dropout"], experiment.best_hyperparameters["batch_size"], 
                     experiment.best_hyperparameters["learning_rate"], experiment.best_epoch+1, proteins_split=proteins_split,
                     output_file=f"results_{name}.csv", similarity=similarity, save_pred_path=save_pred_path, model_name=model_name, suffix_results=suffix_results)
-        
+
+
     
 
 if __name__ == "__main__":
