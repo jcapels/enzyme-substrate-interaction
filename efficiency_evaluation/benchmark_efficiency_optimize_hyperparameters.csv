@@ -1,0 +1,6 @@
+pipeline,time,memory
+experiment_np_esm2,4:02:15.181873,0B
+experiment_prot_bert_np,4:48:00.006736,0B
+experiment_esm1b,9:04:09.702522,0B
+ESP,"1 day, 0:28:51.373444",622M
+ProSmith,"1 week",0B

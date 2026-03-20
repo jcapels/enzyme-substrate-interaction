@@ -3,8 +3,17 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+cdhit
+
+*.pdb
+*.pt
+
 # C extensions
 *.so
+
+dataset_integration/
+
+my_interproscan/
 
 # Distribution / packaging
 .Python

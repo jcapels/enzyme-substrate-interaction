@@ -1,0 +1,1 @@
+python alignment_script.py

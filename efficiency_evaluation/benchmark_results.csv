@@ -1,0 +1,6 @@
+pipeline,time,memory,unique_enzymes,unique_substrates,num_pairs
+process_to_esm2,0:02:16.239072,160M,13.0,18.0,153.0
+process_to_esm2,0:06:31.991903,5M,191.0,89.0,357.0
+process_to_esm2,1:37:07.680495,33M,3139.0,498.0,4170.0
+process_to_esm2,3:18:11.337361,244M,7000.0,1522.0,44148.0
+process_to_esm2,4:46:31.458845,112M,10387.0,1728.0,73230.0
