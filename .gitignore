@@ -11,6 +11,8 @@ cdhit
 # C extensions
 *.so
 
+dataset_integration/
+
 my_interproscan/
 
 # Distribution / packaging

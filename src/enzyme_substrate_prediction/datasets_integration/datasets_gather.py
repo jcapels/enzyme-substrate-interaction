@@ -8,13 +8,13 @@ class DatasetsGatherer(luigi.Task):
         return luigi.LocalTarget('integrated_dataset.csv')
     
     def run(self):
-        goldman_data = pd.read_csv("../Goldman_data/goldman_data.csv")
-        kroll_data = pd.read_csv("../kroll_data_experiment/kroll_data.csv")
-        mou_data = pd.read_csv("../Mou_data/mou_data.csv")
-        yang_data = pd.read_csv("../Yang_data/yang_training_set_w_sequences.csv")
-        oat_data = pd.read_csv("../Yang_data/oat_data.csv")
-        berry_data = pd.read_csv("../Yang_data/berry_data.csv")
-        robinson_data = pd.read_csv("../Robinson_data/final_dataset.csv")
+        goldman_data = pd.read_csv("Goldman_data/goldman_data.csv")
+        kroll_data = pd.read_csv("kroll_data_experiment/kroll_data.csv")
+        mou_data = pd.read_csv("Mou_data/mou_data.csv")
+        yang_data = pd.read_csv("Yang_data/yang_training_set_w_sequences.csv")
+        oat_data = pd.read_csv("Yang_data/oat_data.csv")
+        berry_data = pd.read_csv("Yang_data/berry_data.csv")
+        robinson_data = pd.read_csv("Robinson_data/final_dataset.csv")
         data = pd.concat([goldman_data, kroll_data, mou_data, yang_data, oat_data, berry_data, robinson_data], axis=0)
 
         data_cleaned = data.loc[:, ~data.isna().any()]
