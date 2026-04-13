@@ -1,24 +1,21 @@
 # Enzyme-substrate interaction prediction
 
-### Table of contents:
+## Table of Contents
 
-- [Requirements](#requirements)
+- [Create conda environment](#create-conda-environment)
 - [Installation](#installation)
-    - [Pip](#pip)
-    - [From github](#From-github)
-- [Run pipeline to obtain the data](#Run-pipeline-to-obtain-the-data)
+  - [From GitHub](#from-github)
+- [Run pipeline to obtain the data](#run-pipeline-to-obtain-the-data)
 - [Extract features](#extract-features)
-- [Train models](#Train-models)
-  - [Train baselines](#Train-baselines)
-  - [Train models](#Train-models)
-  - [Train models with both training and validation sets](#Train-models-with-both-training-and-validation-sets)
-  - [Train models with the whole data](#Train-models-with-the-whole-data)
-- [Predict EC numbers](#predict-ec-numbers)
-  - [Predict with model](#predict-with-model)
-  - [Predict with BLAST](#predict-with-blast)
-  - [Predict with an ensemble of BLAST and DL models](#predict-with-an-ensemble-of-blast-and-dl-models)
-- [Data availability](#data-availability)
-- [Post analysis - generate results and plots](#post-analysis---generate-results-and-plots)
+- [Split the data - enzymes](#split-the-data---enzymes)
+  - [Prerequisites](#prerequisites)
+  - [Steps to execute the split](#steps-to-execute-the-split)
+- [Split the data - substrates](#split-the-data---substrates)
+- [Train models](#train-models)
+- [Predict enzyme-substrate specificity](#predict-enzyme-substrate-specificity)
+- [Efficiency estimation](#efficiency-estimation)
+- [All results and plot generation](#all-results-and-plot-generation)
+- [ProSmith and ESP](#prosmith-and-esp)
 
 ## Create conda environment
     
@@ -32,15 +29,10 @@ conda config --add channels bioconda
 conda config --add channels conda-forge
 
 conda install bioconda::blast==2.12.0
+pip install -r requirements.txt
 ```
 
 ## Installation
-
-### Pip
-
-```bash
-pip install enzyme-substrate-interaction
-```
 
 ### From github
 
