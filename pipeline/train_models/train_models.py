@@ -647,31 +647,31 @@ def experiment_features(
     compounds_features : str, optional
         Feature set for compounds. Default is "features_compounds_np_classifier_fp".
     """
-    splits = read_pickle("compounds_split/splits_compounds_08.pkl")
+    splits = read_pickle("../compounds_split/splits_compounds_08.pkl")
     experiment_optimize(splits, model_name=model_name, name="binding_np_classifier_compounds", proteins_split=False, enzymes_features=enzymes_features, compounds_features=compounds_features, similarity=80, dataset=dataset)
 
-    splits = read_pickle("compounds_split/splits_compounds_06.pkl")
+    splits = read_pickle("../compounds_split/splits_compounds_06.pkl")
     experiment_optimize(splits, model_name=model_name, name="binding_np_classifier_compounds", proteins_split=False, enzymes_features=enzymes_features, compounds_features=compounds_features, similarity=60, dataset=dataset)
 
-    splits = read_pickle("compounds_split/splits_compounds_04_corrected.pkl")
+    splits = read_pickle("../compounds_split/splits_compounds_04_corrected.pkl")
     experiment_optimize(splits, model_name=model_name, name="binding_np_classifier_compounds", proteins_split=False, enzymes_features=enzymes_features, compounds_features=compounds_features, similarity=40, dataset=dataset)
 
-    splits = read_pickle("compounds_split/splits_compounds_03.pkl")
+    splits = read_pickle("../compounds_split/splits_compounds_03.pkl")
     experiment_optimize(splits, model_name=model_name, name="binding_np_classifier_compounds", proteins_split=False, enzymes_features=enzymes_features, compounds_features=compounds_features, similarity=30, dataset=dataset)
 
-    splits = read_pickle("compounds_split/splits_compounds_02.pkl")
+    splits = read_pickle("../compounds_split/splits_compounds_02.pkl")
     experiment_optimize(splits, model_name=model_name, name="binding_np_classifier_compounds", proteins_split=False, enzymes_features=enzymes_features, compounds_features=compounds_features, similarity=20, dataset=dataset)
 
-    splits = read_pickle("splits/splits_0_6_proteins_train_val_test.pkl")
+    splits = read_pickle("../protein_splits/splits_0_6_proteins_train_val_test.pkl")
     experiment_optimize(splits, model_name=model_name, name="binding_np_classifier_proteins", proteins_split=True, enzymes_features=enzymes_features, compounds_features=compounds_features, similarity=60, dataset=dataset)
 
-    splits = read_pickle("splits/splits_0_8_proteins_train_val_test.pkl")
+    splits = read_pickle("../protein_splits/splits_0_8_proteins_train_val_test.pkl")
     experiment_optimize(splits, model_name=model_name, name="binding_np_classifier_proteins", proteins_split=True, enzymes_features=enzymes_features, compounds_features=compounds_features, similarity=80, dataset=dataset)
 
-    splits = read_pickle("splits/splits_0_4_proteins_train_val_test.pkl")
+    splits = read_pickle("../protein_splits/splits_0_4_proteins_train_val_test.pkl")
     experiment_optimize(splits, model_name=model_name, name="binding_np_classifier_proteins", proteins_split=True, enzymes_features=enzymes_features, compounds_features=compounds_features, similarity=40, dataset=dataset)
 
-    splits = read_pickle("splits/splits_0_2_proteins_train_val_test.pkl")
+    splits = read_pickle("../protein_splits/splits_0_2_proteins_train_val_test.pkl")
     experiment_optimize(splits, model_name=model_name, name="binding_np_classifier_proteins", proteins_split=True, enzymes_features=enzymes_features, compounds_features=compounds_features, similarity=20, dataset=dataset)
 
 def experiment_np_esm2(
@@ -827,7 +827,7 @@ def train_model_and_save(
     compounds_features : str, optional
         Feature set for compounds. Default is "features_compounds_np_classifier_fp".
     """
-    splits = read_pickle("splits/splits_0_8_proteins_train_val_test.pkl")
+    splits = read_pickle("../protein_splits/splits_0_8_proteins_train_val_test.pkl")
     datasets = load_datasets(splits, enzymes_features=enzymes_features, compounds_features=compounds_features)
     train_dataset, validation_dataset, test_dataset = datasets[0]
     best = read_pickle(model_params_path)
@@ -970,10 +970,10 @@ def train_protbert_and_evaluate_for_classes(
     save_pred_path : str, optional
         Path to save predictions. Default is "xgb_np_prot_bert_no_stereo".
     """
-    train_model_and_evaluate_for_classes(dataset=dataset, general_split="compounds_split/splits_compounds_02.pkl", split_path="splits/pathway_to_compounds_split_02.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=20)
-    train_model_and_evaluate_for_classes(dataset=dataset, general_split="compounds_split/splits_compounds_04_corrected.pkl", split_path="splits/pathway_to_compounds_split_04.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=40)
-    train_model_and_evaluate_for_classes(dataset=dataset, general_split="compounds_split/splits_compounds_06.pkl", split_path="splits/pathway_to_compounds_split_06.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=60)
-    train_model_and_evaluate_for_classes(dataset=dataset, general_split="compounds_split/splits_compounds_08.pkl", split_path="splits/pathway_to_compounds_split_08.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=80)
+    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../compounds_split/splits_compounds_02.pkl", split_path="../protein_splits/pathway_to_compounds_split_02.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=20)
+    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../compounds_split/splits_compounds_04_corrected.pkl", split_path="../protein_splits/pathway_to_compounds_split_04.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=40)
+    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../compounds_split/splits_compounds_06.pkl", split_path="../protein_splits/pathway_to_compounds_split_06.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=60)
+    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../compounds_split/splits_compounds_08.pkl", split_path="../protein_splits/pathway_to_compounds_split_08.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=80)
 
 def train_esm1b_and_evaluate_for_classes(
     dataset: str = "curated_dataset_no_stereochemistry_duplicates.csv",
@@ -989,10 +989,10 @@ def train_esm1b_and_evaluate_for_classes(
     save_pred_path : str, optional
         Path to save predictions. Default is "xgb_np_esm1b_no_stereo".
     """
-    train_model_and_evaluate_for_classes(dataset=dataset, general_split="compounds_split/splits_compounds_02.pkl", split_path="splits/pathway_to_compounds_split_02.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=20)
-    train_model_and_evaluate_for_classes(dataset=dataset, general_split="compounds_split/splits_compounds_04_corrected.pkl", split_path="splits/pathway_to_compounds_split_04.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=40)
-    train_model_and_evaluate_for_classes(dataset=dataset, general_split="compounds_split/splits_compounds_06.pkl", split_path="splits/pathway_to_compounds_split_06.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=60)
-    train_model_and_evaluate_for_classes(dataset=dataset, general_split="compounds_split/splits_compounds_08.pkl", split_path="splits/pathway_to_compounds_split_08.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=80)
+    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../compounds_split/splits_compounds_02.pkl", split_path="../protein_splits/pathway_to_compounds_split_02.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=20)
+    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../compounds_split/splits_compounds_04_corrected.pkl", split_path="../protein_splits/pathway_to_compounds_split_04.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=40)
+    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../compounds_split/splits_compounds_06.pkl", split_path="../protein_splits/pathway_to_compounds_split_06.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=60)
+    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../compounds_split/splits_compounds_08.pkl", split_path="../protein_splits/pathway_to_compounds_split_08.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=80)
 
 def train_esm2_3b_and_evaluate_for_classes(
     dataset: str = "curated_dataset_no_stereochemistry_duplicates.csv",
@@ -1008,10 +1008,10 @@ def train_esm2_3b_and_evaluate_for_classes(
     save_pred_path : str, optional
         Path to save predictions. Default is "xgb_np_esm2_no_stereo".
     """
-    train_model_and_evaluate_for_classes(dataset=dataset, general_split="compounds_split/splits_compounds_02.pkl", split_path="splits/pathway_to_compounds_split_02.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=20)
-    train_model_and_evaluate_for_classes(dataset=dataset, general_split="compounds_split/splits_compounds_04_corrected.pkl", split_path="splits/pathway_to_compounds_split_04.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=40)
-    train_model_and_evaluate_for_classes(dataset=dataset, general_split="compounds_split/splits_compounds_06.pkl", split_path="splits/pathway_to_compounds_split_06.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=60)
-    train_model_and_evaluate_for_classes(dataset=dataset, general_split="compounds_split/splits_compounds_08.pkl", split_path="splits/pathway_to_compounds_split_08.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=80)
+    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../compounds_split/splits_compounds_02.pkl", split_path="../protein_splits/pathway_to_compounds_split_02.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=20)
+    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../compounds_split/splits_compounds_04_corrected.pkl", split_path="../protein_splits/pathway_to_compounds_split_04.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=40)
+    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../compounds_split/splits_compounds_06.pkl", split_path="../protein_splits/pathway_to_compounds_split_06.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=60)
+    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../compounds_split/splits_compounds_08.pkl", split_path="../protein_splits/pathway_to_compounds_split_08.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=80)
 
 def train_and_evaluate(
     dataset: str,
@@ -1060,31 +1060,31 @@ def train_and_evaluate(
 def train_esm2_and_evaluate() -> None:
     """Train and evaluate ESM2 model."""
     dataset = "curated_dataset.csv"
-    splits = read_pickle("compounds_split/splits_compounds_04_corrected.pkl")
+    splits = read_pickle("../compounds_split/splits_compounds_04_corrected.pkl")
     train_and_evaluate(dataset, splits, proteins_split=False, similarity=40, name="binding_np_classifier_compounds", enzymes_features="esm2_3b_ec_number_embedding", compounds_features="features_compounds_np_classifier_fp", save_pred_path="xgb_np_esm2_stereo", results_name="results_xgb_np_esm2_compounds.csv")
 
     dataset = "curated_dataset_no_stereochemistry_duplicates.csv"
-    splits = read_pickle("compounds_split/splits_compounds_04_corrected.pkl")
+    splits = read_pickle("../compounds_split/splits_compounds_04_corrected.pkl")
     train_and_evaluate(dataset, splits, proteins_split=False, similarity=40, name="binding_np_classifier_compounds", enzymes_features="esm2_3b_ec_number_embedding", compounds_features="features_compounds_np_classifier_fp", save_pred_path="xgb_np_esm2_no_stereo", results_name="results_xgb_np_esm2_compounds.csv")
 
 def train_esm1b_and_evaluate() -> None:
     """Train and evaluate ESM1b model."""
     dataset = "curated_dataset.csv"
-    splits = read_pickle("compounds_split/splits_compounds_04_corrected.pkl")
+    splits = read_pickle("../compounds_split/splits_compounds_04_corrected.pkl")
     train_and_evaluate(dataset, splits, proteins_split=False, similarity=40, name="binding_np_classifier_compounds", enzymes_features="esm1b_ec_number_embedding", compounds_features="features_compounds_np_classifier_fp", save_pred_path="xgb_np_esm1b_stereo", results_name="results_xgb_np_esm1b_compounds.csv")
 
     dataset = "curated_dataset_no_stereochemistry_duplicates.csv"
-    splits = read_pickle("compounds_split/splits_compounds_04_corrected.pkl")
+    splits = read_pickle("../compounds_split/splits_compounds_04_corrected.pkl")
     train_and_evaluate(dataset, splits, proteins_split=False, similarity=40, name="binding_np_classifier_compounds", enzymes_features="esm1b_ec_number_embedding", compounds_features="features_compounds_np_classifier_fp", save_pred_path="xgb_np_esm1b_no_stereo", results_name="results_xgb_np_esm1b_compounds.csv")
 
 def train_protbert_and_evaluate() -> None:
     """Train and evaluate ProtBERT model."""
     dataset = "curated_dataset.csv"
-    splits = read_pickle("compounds_split/splits_compounds_04_corrected.pkl")
+    splits = read_pickle("../compounds_split/splits_compounds_04_corrected.pkl")
     train_and_evaluate(dataset, splits, proteins_split=False, similarity=40, name="binding_np_classifier_compounds", enzymes_features="prot_bert_ec_number_embedding", compounds_features="features_compounds_np_classifier_fp", save_pred_path="xgb_np_prot_bert_stereo", results_name="results_xgb_np_prot_bert_compounds.csv")
 
     dataset = "curated_dataset_no_stereochemistry_duplicates.csv"
-    splits = read_pickle("compounds_split/splits_compounds_04_corrected.pkl")
+    splits = read_pickle("../compounds_split/splits_compounds_04_corrected.pkl")
     train_and_evaluate(dataset, splits, proteins_split=False, similarity=40, name="binding_np_classifier_compounds", enzymes_features="prot_bert_ec_number_embedding", compounds_features="features_compounds_np_classifier_fp", save_pred_path="xgb_np_prot_bert_no_stereo", results_name="results_xgb_np_prot_bert_compounds.csv")
 
 if __name__ == "__main__":
@@ -1093,7 +1093,3 @@ if __name__ == "__main__":
     experiment_np_esm2()
     experiment_esm1b()
     experiment_prot_bert_np()
-
-    train_protbert_and_evaluate_for_classes(dataset="curated_dataset.csv", save_pred_path="xgb_np_prot_bert_stereo")
-    train_esm1b_and_evaluate_for_classes(dataset="curated_dataset.csv", save_pred_path="xgb_np_esm1b_stereo")
-    train_esm2_3b_and_evaluate_for_classes(dataset="curated_dataset.csv", save_pred_path="xgb_np_esm2_stereo")

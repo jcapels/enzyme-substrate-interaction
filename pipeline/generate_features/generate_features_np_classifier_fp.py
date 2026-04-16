@@ -1,0 +1,4 @@
+from enzyme_substrate_prediction.generate_features import generate_features_for_compounds
+
+
+generate_features_for_compounds("curated_dataset.csv")
