@@ -1,6 +1,6 @@
 from copy import deepcopy
 import os
-from typing import List, Tuple, Dict, Any, Union, Optional
+from typing import List, Tuple, Dict, Any, Optional
 import numpy as np
 import pandas as pd
 from sklearn.metrics import matthews_corrcoef, roc_auc_score, f1_score, precision_score, recall_score, accuracy_score
@@ -11,11 +11,11 @@ from plants_sm.data_structures.dataset.multi_input_dataset import MultiInputData
 
 def load_datasets(
     ids_for_datasets: List[Tuple[List[str], List[str], List[str]]],
-    dataset: str = "curated_dataset.csv",
+    dataset: str = "../dataset_integration_pipeline/curated_dataset.csv",
     random_state: int = 42,
     merge_validation_set: bool = False,
-    enzymes_features: str = "esm2_3b_ec_number_embedding",
-    compounds_features: str = "features_compounds_np_classifier_fp"
+    enzymes_features: str = "../generate_features/esm2_3b_ec_number_embedding",
+    compounds_features: str = "../generate_features/features_compounds_np_classifier_fp"
 ) -> List[Tuple[MultiInputDataset, ...]]:
     """
     Load and prepare enzyme and compound datasets based on provided IDs.
@@ -25,7 +25,7 @@ def load_datasets(
     ids_for_datasets : List[Tuple[List[str], List[str], List[str]]]
         List of tuples, each containing (train_ids, val_ids, test_ids).
     dataset : str, optional
-        Path to the dataset CSV file. Default is "curated_dataset.csv".
+        Path to the dataset CSV file. Default is "../dataset_integration_pipeline/curated_dataset.csv".
     random_state : int, optional
         Random seed for reproducibility. Default is 42.
     merge_validation_set : bool, optional
@@ -88,11 +88,11 @@ def load_datasets(
 
 def load_datasets_compounds(
     ids_for_datasets: List[Tuple[List[str], List[str], List[str]]],
-    dataset: str = "curated_dataset.csv",
+    dataset: str = "../dataset_integration_pipeline/curated_dataset.csv",
     random_state: int = 42,
     merge_validation_set: bool = False,
-    enzymes_features: str = "esm2_3b_ec_number_embedding",
-    compounds_features: str = "features_compounds_np_classifier_fp"
+    enzymes_features: str = "../generate_features/esm2_3b_ec_number_embedding",
+    compounds_features: str = "../generate_features/features_compounds_np_classifier_fp"
 ) -> List[Tuple[MultiInputDataset, ...]]:
     """
     Load and prepare compound datasets based on provided IDs.
@@ -102,7 +102,7 @@ def load_datasets_compounds(
     ids_for_datasets : List[Tuple[List[str], List[str], List[str]]]
         List of tuples, each containing (train_ids, val_ids, test_ids).
     dataset : str, optional
-        Path to the dataset CSV file. Default is "curated_dataset.csv".
+        Path to the dataset CSV file. Default is "../dataset_integration_pipeline/curated_dataset.csv".
     random_state : int, optional
         Random seed for reproducibility. Default is 42.
     merge_validation_set : bool, optional
@@ -591,9 +591,9 @@ def experiment_optimize(
     name: str,
     proteins_split: bool,
     similarity: float,
-    dataset: str = "curated_dataset.csv",
-    enzymes_features: str = "esm2_3b_ec_number_embedding",
-    compounds_features: str = "features_compounds_np_classifier_fp",
+    dataset: str = "../dataset_integration_pipeline/curated_dataset.csv",
+    enzymes_features: str = "../generate_features/esm2_3b_ec_number_embedding",
+    compounds_features: str = "../generate_features/features_compounds_np_classifier_fp",
     model_name: str = "xgb_np_esm2"
 ) -> None:
     """
@@ -610,7 +610,7 @@ def experiment_optimize(
     similarity : float
         Similarity threshold.
     dataset : str, optional
-        Path to the dataset CSV file. Default is "curated_dataset.csv".
+        Path to the dataset CSV file. Default is "../dataset_integration_pipeline/curated_dataset.csv".
     enzymes_features : str, optional
         Feature set for enzymes. Default is "esm2_3b_ec_number_embedding".
     compounds_features : str, optional
@@ -629,9 +629,9 @@ def experiment_optimize(
 
 def experiment_features(
     model_name: str,
-    dataset: str = "curated_dataset.csv",
-    enzymes_features: str = "esm2_3b_ec_number_embedding",
-    compounds_features: str = "features_compounds_np_classifier_fp"
+    dataset: str = "../dataset_integration_pipeline/curated_dataset.csv",
+    enzymes_features: str = "../generate_features/esm2_3b_ec_number_embedding",
+    compounds_features: str = "../generate_features/features_compounds_np_classifier_fp"
 ) -> None:
     """
     Run experiments for different feature sets and splits.
@@ -641,25 +641,25 @@ def experiment_features(
     model_name : str
         Name of the model.
     dataset : str, optional
-        Path to the dataset CSV file. Default is "curated_dataset.csv".
+        Path to the dataset CSV file. Default is "../dataset_integration_pipeline/curated_dataset.csv".
     enzymes_features : str, optional
         Feature set for enzymes. Default is "esm2_3b_ec_number_embedding".
     compounds_features : str, optional
         Feature set for compounds. Default is "features_compounds_np_classifier_fp".
     """
-    splits = read_pickle("../compounds_split/splits_compounds_08.pkl")
+    splits = read_pickle("../split_data/compounds_split/splits_compounds_08.pkl")
     experiment_optimize(splits, model_name=model_name, name="binding_np_classifier_compounds", proteins_split=False, enzymes_features=enzymes_features, compounds_features=compounds_features, similarity=80, dataset=dataset)
 
-    splits = read_pickle("../compounds_split/splits_compounds_06.pkl")
+    splits = read_pickle("../split_data/compounds_split/splits_compounds_06.pkl")
     experiment_optimize(splits, model_name=model_name, name="binding_np_classifier_compounds", proteins_split=False, enzymes_features=enzymes_features, compounds_features=compounds_features, similarity=60, dataset=dataset)
 
-    splits = read_pickle("../compounds_split/splits_compounds_04_corrected.pkl")
+    splits = read_pickle("../split_data/compounds_split/splits_compounds_04_corrected.pkl")
     experiment_optimize(splits, model_name=model_name, name="binding_np_classifier_compounds", proteins_split=False, enzymes_features=enzymes_features, compounds_features=compounds_features, similarity=40, dataset=dataset)
 
-    splits = read_pickle("../compounds_split/splits_compounds_03.pkl")
+    splits = read_pickle("../split_data/compounds_split/splits_compounds_03.pkl")
     experiment_optimize(splits, model_name=model_name, name="binding_np_classifier_compounds", proteins_split=False, enzymes_features=enzymes_features, compounds_features=compounds_features, similarity=30, dataset=dataset)
 
-    splits = read_pickle("../compounds_split/splits_compounds_02.pkl")
+    splits = read_pickle("../split_data/compounds_split/splits_compounds_02.pkl")
     experiment_optimize(splits, model_name=model_name, name="binding_np_classifier_compounds", proteins_split=False, enzymes_features=enzymes_features, compounds_features=compounds_features, similarity=20, dataset=dataset)
 
     splits = read_pickle("../protein_splits/splits_0_6_proteins_train_val_test.pkl")
@@ -675,9 +675,9 @@ def experiment_features(
     experiment_optimize(splits, model_name=model_name, name="binding_np_classifier_proteins", proteins_split=True, enzymes_features=enzymes_features, compounds_features=compounds_features, similarity=20, dataset=dataset)
 
 def experiment_np_esm2(
-    dataset: str = "curated_dataset.csv",
-    enzymes_features: str = "esm2_3b_ec_number_embedding",
-    compounds_features: str = "features_compounds_np_classifier_fp"
+    dataset: str = "../dataset_integration_pipeline/curated_dataset.csv",
+    enzymes_features: str = "../generate_features/esm2_3b_ec_number_embedding",
+    compounds_features: str = "../generate_features/features_compounds_np_classifier_fp"
 ) -> None:
     """
     Run experiments using ESM2 features.
@@ -685,7 +685,7 @@ def experiment_np_esm2(
     Parameters
     ----------
     dataset : str, optional
-        Path to the dataset CSV file. Default is "curated_dataset.csv".
+        Path to the dataset CSV file. Default is "../dataset_integration_pipeline/curated_dataset.csv".
     enzymes_features : str, optional
         Feature set for enzymes. Default is "esm2_3b_ec_number_embedding".
     compounds_features : str, optional
@@ -694,7 +694,7 @@ def experiment_np_esm2(
     experiment_features(dataset=dataset, enzymes_features=enzymes_features, compounds_features=compounds_features, model_name="xgb_np_esm2")
 
 def experiment_np_esm2_augmented(
-    dataset: str = "curated_dataset.csv",
+    dataset: str = "../dataset_integration_pipeline/curated_dataset.csv",
     enzymes_features: str = "features_proteins_esm2_3b_ec_number_augmented_embedding",
     compounds_features: str = "features_compounds_np_classifier_fp_augmented"
 ) -> None:
@@ -704,7 +704,7 @@ def experiment_np_esm2_augmented(
     Parameters
     ----------
     dataset : str, optional
-        Path to the dataset CSV file. Default is "curated_dataset.csv".
+        Path to the dataset CSV file. Default is "../dataset_integration_pipeline/curated_dataset.csv".
     enzymes_features : str, optional
         Feature set for enzymes. Default is "features_proteins_esm2_3b_ec_number_augmented_embedding".
     compounds_features : str, optional
@@ -713,9 +713,9 @@ def experiment_np_esm2_augmented(
     experiment_features(enzymes_features=enzymes_features, dataset=dataset, compounds_features=compounds_features, model_name="xgb_np_esm2_augmented")
 
 def experiment_prot_bert_np(
-    dataset: str = "curated_dataset.csv",
-    enzymes_features: str = "prot_bert_ec_number_embedding",
-    compounds_features: str = "features_compounds_np_classifier_fp"
+    dataset: str = "../dataset_integration_pipeline/curated_dataset.csv",
+    enzymes_features: str = "../generate_features/prot_bert_ec_number_embedding",
+    compounds_features: str = "../generate_features/features_compounds_np_classifier_fp"
 ) -> None:
     """
     Run experiments using ProtBERT features.
@@ -723,7 +723,7 @@ def experiment_prot_bert_np(
     Parameters
     ----------
     dataset : str, optional
-        Path to the dataset CSV file. Default is "curated_dataset.csv".
+        Path to the dataset CSV file. Default is "../dataset_integration_pipeline/curated_dataset.csv".
     enzymes_features : str, optional
         Feature set for enzymes. Default is "prot_bert_ec_number_embedding".
     compounds_features : str, optional
@@ -732,9 +732,9 @@ def experiment_prot_bert_np(
     experiment_features(dataset=dataset, enzymes_features=enzymes_features, compounds_features=compounds_features, model_name="xgb_np_prot_bert")
 
 def experiment_esm1b(
-    dataset: str = "curated_dataset.csv",
-    enzymes_features: str = "esm1b_ec_number_embedding",
-    compounds_features: str = "features_compounds_np_classifier_fp"
+    dataset: str = "../dataset_integration_pipeline/curated_dataset.csv",
+    enzymes_features: str = "../generate_features/esm1b_ec_number_embedding",
+    compounds_features: str = "../generate_features/features_compounds_np_classifier_fp"
 ) -> None:
     """
     Run experiments using ESM1b features.
@@ -742,7 +742,7 @@ def experiment_esm1b(
     Parameters
     ----------
     dataset : str, optional
-        Path to the dataset CSV file. Default is "curated_dataset.csv".
+        Path to the dataset CSV file. Default is "../dataset_integration_pipeline/curated_dataset.csv".
     enzymes_features : str, optional
         Feature set for enzymes. Default is "esm1b_ec_number_embedding".
     compounds_features : str, optional
@@ -751,7 +751,7 @@ def experiment_esm1b(
     experiment_features(dataset=dataset, enzymes_features=enzymes_features, compounds_features=compounds_features, model_name="xgb_np_esm1b")
 
 def experiment_np_esm2_np_chirality(
-    dataset: str = "curated_dataset.csv",
+    dataset: str = "../dataset_integration_pipeline/curated_dataset.csv",
     enzymes_features: str = "esm2_3b_ec_number_embedding",
     compounds_features: str = "features_compounds_np_classifier_fp_chirality"
 ) -> None:
@@ -761,7 +761,7 @@ def experiment_np_esm2_np_chirality(
     Parameters
     ----------
     dataset : str, optional
-        Path to the dataset CSV file. Default is "curated_dataset.csv".
+        Path to the dataset CSV file. Default is "../dataset_integration_pipeline/curated_dataset.csv".
     enzymes_features : str, optional
         Feature set for enzymes. Default is "esm2_3b_ec_number_embedding".
     compounds_features : str, optional
@@ -770,7 +770,7 @@ def experiment_np_esm2_np_chirality(
     experiment_features(dataset=dataset, enzymes_features=enzymes_features, compounds_features=compounds_features, model_name="xgb_np_esm2_chirality")
 
 def experiment_prot_bert_np_chirality(
-    dataset: str = "curated_dataset.csv",
+    dataset: str = "../dataset_integration_pipeline/curated_dataset.csv",
     enzymes_features: str = "prot_bert_ec_number_embedding",
     compounds_features: str = "features_compounds_np_classifier_fp_chirality"
 ) -> None:
@@ -780,7 +780,7 @@ def experiment_prot_bert_np_chirality(
     Parameters
     ----------
     dataset : str, optional
-        Path to the dataset CSV file. Default is "curated_dataset.csv".
+        Path to the dataset CSV file. Default is "../dataset_integration_pipeline/curated_dataset.csv".
     enzymes_features : str, optional
         Feature set for enzymes. Default is "prot_bert_ec_number_embedding".
     compounds_features : str, optional
@@ -789,7 +789,7 @@ def experiment_prot_bert_np_chirality(
     experiment_features(dataset=dataset, enzymes_features=enzymes_features, compounds_features=compounds_features, model_name="xgb_np_prot_bert_chirality")
 
 def experiment_esm1b_np_chirality(
-    dataset: str = "curated_dataset.csv",
+    dataset: str = "../dataset_integration_pipeline/curated_dataset.csv",
     enzymes_features: str = "esm1b_ec_number_embedding",
     compounds_features: str = "features_compounds_np_classifier_fp_chirality"
 ) -> None:
@@ -799,7 +799,7 @@ def experiment_esm1b_np_chirality(
     Parameters
     ----------
     dataset : str, optional
-        Path to the dataset CSV file. Default is "curated_dataset.csv".
+        Path to the dataset CSV file. Default is "../dataset_integration_pipeline/curated_dataset.csv".
     enzymes_features : str, optional
         Feature set for enzymes. Default is "esm1b_ec_number_embedding".
     compounds_features : str, optional
@@ -970,10 +970,10 @@ def train_protbert_and_evaluate_for_classes(
     save_pred_path : str, optional
         Path to save predictions. Default is "xgb_np_prot_bert_no_stereo".
     """
-    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../compounds_split/splits_compounds_02.pkl", split_path="../protein_splits/pathway_to_compounds_split_02.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=20)
-    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../compounds_split/splits_compounds_04_corrected.pkl", split_path="../protein_splits/pathway_to_compounds_split_04.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=40)
-    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../compounds_split/splits_compounds_06.pkl", split_path="../protein_splits/pathway_to_compounds_split_06.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=60)
-    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../compounds_split/splits_compounds_08.pkl", split_path="../protein_splits/pathway_to_compounds_split_08.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=80)
+    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../split_data/compounds_split/splits_compounds_02.pkl", split_path="../protein_splits/pathway_to_compounds_split_02.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=20)
+    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../split_data/compounds_split/splits_compounds_04_corrected.pkl", split_path="../protein_splits/pathway_to_compounds_split_04.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=40)
+    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../split_data/compounds_split/splits_compounds_06.pkl", split_path="../protein_splits/pathway_to_compounds_split_06.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=60)
+    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../split_data/compounds_split/splits_compounds_08.pkl", split_path="../protein_splits/pathway_to_compounds_split_08.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=80)
 
 def train_esm1b_and_evaluate_for_classes(
     dataset: str = "curated_dataset_no_stereochemistry_duplicates.csv",
@@ -989,10 +989,10 @@ def train_esm1b_and_evaluate_for_classes(
     save_pred_path : str, optional
         Path to save predictions. Default is "xgb_np_esm1b_no_stereo".
     """
-    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../compounds_split/splits_compounds_02.pkl", split_path="../protein_splits/pathway_to_compounds_split_02.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=20)
-    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../compounds_split/splits_compounds_04_corrected.pkl", split_path="../protein_splits/pathway_to_compounds_split_04.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=40)
-    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../compounds_split/splits_compounds_06.pkl", split_path="../protein_splits/pathway_to_compounds_split_06.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=60)
-    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../compounds_split/splits_compounds_08.pkl", split_path="../protein_splits/pathway_to_compounds_split_08.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=80)
+    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../split_data/compounds_split/splits_compounds_02.pkl", split_path="../protein_splits/pathway_to_compounds_split_02.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=20)
+    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../split_data/compounds_split/splits_compounds_04_corrected.pkl", split_path="../protein_splits/pathway_to_compounds_split_04.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=40)
+    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../split_data/compounds_split/splits_compounds_06.pkl", split_path="../protein_splits/pathway_to_compounds_split_06.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=60)
+    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../split_data/compounds_split/splits_compounds_08.pkl", split_path="../protein_splits/pathway_to_compounds_split_08.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=80)
 
 def train_esm2_3b_and_evaluate_for_classes(
     dataset: str = "curated_dataset_no_stereochemistry_duplicates.csv",
@@ -1008,10 +1008,10 @@ def train_esm2_3b_and_evaluate_for_classes(
     save_pred_path : str, optional
         Path to save predictions. Default is "xgb_np_esm2_no_stereo".
     """
-    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../compounds_split/splits_compounds_02.pkl", split_path="../protein_splits/pathway_to_compounds_split_02.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=20)
-    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../compounds_split/splits_compounds_04_corrected.pkl", split_path="../protein_splits/pathway_to_compounds_split_04.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=40)
-    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../compounds_split/splits_compounds_06.pkl", split_path="../protein_splits/pathway_to_compounds_split_06.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=60)
-    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../compounds_split/splits_compounds_08.pkl", split_path="../protein_splits/pathway_to_compounds_split_08.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=80)
+    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../split_data/compounds_split/splits_compounds_02.pkl", split_path="../protein_splits/pathway_to_compounds_split_02.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=20)
+    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../split_data/compounds_split/splits_compounds_04_corrected.pkl", split_path="../protein_splits/pathway_to_compounds_split_04.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=40)
+    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../split_data/compounds_split/splits_compounds_06.pkl", split_path="../protein_splits/pathway_to_compounds_split_06.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=60)
+    train_model_and_evaluate_for_classes(dataset=dataset, general_split="../split_data/compounds_split/splits_compounds_08.pkl", split_path="../protein_splits/pathway_to_compounds_split_08.pkl", save_pred_path=save_pred_path, model_name="binding_np_classifier_compounds", similarity=80)
 
 def train_and_evaluate(
     dataset: str,
@@ -1059,32 +1059,32 @@ def train_and_evaluate(
 
 def train_esm2_and_evaluate() -> None:
     """Train and evaluate ESM2 model."""
-    dataset = "curated_dataset.csv"
-    splits = read_pickle("../compounds_split/splits_compounds_04_corrected.pkl")
+    dataset = "../dataset_integration_pipeline/curated_dataset.csv"
+    splits = read_pickle("../split_data/compounds_split/splits_compounds_04_corrected.pkl")
     train_and_evaluate(dataset, splits, proteins_split=False, similarity=40, name="binding_np_classifier_compounds", enzymes_features="esm2_3b_ec_number_embedding", compounds_features="features_compounds_np_classifier_fp", save_pred_path="xgb_np_esm2_stereo", results_name="results_xgb_np_esm2_compounds.csv")
 
     dataset = "curated_dataset_no_stereochemistry_duplicates.csv"
-    splits = read_pickle("../compounds_split/splits_compounds_04_corrected.pkl")
+    splits = read_pickle("../split_data/compounds_split/splits_compounds_04_corrected.pkl")
     train_and_evaluate(dataset, splits, proteins_split=False, similarity=40, name="binding_np_classifier_compounds", enzymes_features="esm2_3b_ec_number_embedding", compounds_features="features_compounds_np_classifier_fp", save_pred_path="xgb_np_esm2_no_stereo", results_name="results_xgb_np_esm2_compounds.csv")
 
 def train_esm1b_and_evaluate() -> None:
     """Train and evaluate ESM1b model."""
-    dataset = "curated_dataset.csv"
-    splits = read_pickle("../compounds_split/splits_compounds_04_corrected.pkl")
+    dataset = "../dataset_integration_pipeline/curated_dataset.csv"
+    splits = read_pickle("../split_data/compounds_split/splits_compounds_04_corrected.pkl")
     train_and_evaluate(dataset, splits, proteins_split=False, similarity=40, name="binding_np_classifier_compounds", enzymes_features="esm1b_ec_number_embedding", compounds_features="features_compounds_np_classifier_fp", save_pred_path="xgb_np_esm1b_stereo", results_name="results_xgb_np_esm1b_compounds.csv")
 
     dataset = "curated_dataset_no_stereochemistry_duplicates.csv"
-    splits = read_pickle("../compounds_split/splits_compounds_04_corrected.pkl")
+    splits = read_pickle("../split_data/compounds_split/splits_compounds_04_corrected.pkl")
     train_and_evaluate(dataset, splits, proteins_split=False, similarity=40, name="binding_np_classifier_compounds", enzymes_features="esm1b_ec_number_embedding", compounds_features="features_compounds_np_classifier_fp", save_pred_path="xgb_np_esm1b_no_stereo", results_name="results_xgb_np_esm1b_compounds.csv")
 
 def train_protbert_and_evaluate() -> None:
     """Train and evaluate ProtBERT model."""
-    dataset = "curated_dataset.csv"
-    splits = read_pickle("../compounds_split/splits_compounds_04_corrected.pkl")
+    dataset = "../dataset_integration_pipeline/curated_dataset.csv"
+    splits = read_pickle("../split_data/compounds_split/splits_compounds_04_corrected.pkl")
     train_and_evaluate(dataset, splits, proteins_split=False, similarity=40, name="binding_np_classifier_compounds", enzymes_features="prot_bert_ec_number_embedding", compounds_features="features_compounds_np_classifier_fp", save_pred_path="xgb_np_prot_bert_stereo", results_name="results_xgb_np_prot_bert_compounds.csv")
 
     dataset = "curated_dataset_no_stereochemistry_duplicates.csv"
-    splits = read_pickle("../compounds_split/splits_compounds_04_corrected.pkl")
+    splits = read_pickle("../split_data/compounds_split/splits_compounds_04_corrected.pkl")
     train_and_evaluate(dataset, splits, proteins_split=False, similarity=40, name="binding_np_classifier_compounds", enzymes_features="prot_bert_ec_number_embedding", compounds_features="features_compounds_np_classifier_fp", save_pred_path="xgb_np_prot_bert_no_stereo", results_name="results_xgb_np_prot_bert_compounds.csv")
 
 if __name__ == "__main__":

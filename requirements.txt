@@ -1,4 +1,4 @@
-plants-sm==0.0.4
+plants-sm==0.0.7
 luigi
 scikit-multilearn
 matplotlib-venn
