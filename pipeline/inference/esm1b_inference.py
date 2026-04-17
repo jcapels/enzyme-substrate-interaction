@@ -5,5 +5,4 @@ def test_esi_esm1b_inference(data_path):
     annotator = ESM1bESIAnnotator()
     return annotator.annotate_from_file(data_path, "csv")
 
-if __name__ == "__main__":
-    print(test_esi_esm1b_inference("curated_dataset_test.csv"))
+test_esi_esm1b_inference("curated_dataset_test.csv")

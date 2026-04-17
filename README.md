@@ -108,7 +108,7 @@ python generate_features_np_classifier_fp.py
    ```bash
    sh run_split.sh
    ```
-3. **Copy the result files to `protein_splits` folder and run `python split_data.py`
+3. Copy the result files to `protein_splits` folder and run `python split_data.py`
 ---
 
 #### Notes
@@ -130,7 +130,35 @@ python train_models.py
 
 ## Predict Enzyme-Substrate Specificity
 
+For this, you can see examples in **[pipeline/inference/](pipeline/inference/)**.
 
+As you see there, you can run the prediction from a csv file. The methods are assuming the the first column is the enzyme ID, the second is the enzyme sequence, the third is the substrate ID and the fourth is substrate SMILES.
+
+You can run it this way:
+
+Using ESM2 3B:
+```python
+from plants_sm.pathway_prediction.esi_annotator import ESM2ESIAnnotator
+
+annotator = ESM2ESIAnnotator()
+annotator.annotate_from_file(data_path, "csv")
+```
+
+Using ESM1b:
+```python
+from plants_sm.pathway_prediction.esi_annotator import ESM1bESIAnnotator
+
+annotator = ESM1bESIAnnotator()
+annotator.annotate_from_file(data_path, "csv")
+```
+
+Using ProtBERT:
+```python
+from plants_sm.pathway_prediction.esi_annotator import ProtBertESIAnnotator
+
+annotator = ProtBertESIAnnotator()
+annotator.annotate_from_file(data_path, "csv")
+```
 
 ## Efficiency estimation
 
